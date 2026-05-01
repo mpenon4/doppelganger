@@ -1,4 +1,4 @@
-import { generateObject } from 'ai'
+import { generateText, Output } from 'ai'
 import { z } from 'zod'
 
 export const maxDuration = 60
@@ -34,27 +34,23 @@ export async function POST(request: Request) {
     if (description.toLowerCase().includes('my startup is dead')) {
       return Response.json({
         easterEgg: true,
-        message: "🪦 We know. That's why you're here.",
+        message: "We know. That's why you're here.",
       })
     }
 
-    const result = await generateObject({
+    const { output } = await generateText({
       model: 'anthropic/claude-sonnet-4-20250514',
-      schema: doppelgangerSchema,
-      tools: {
-        webSearch: {
-          type: 'webSearch' as const,
-        },
-      },
-      maxSteps: 5,
+      output: Output.object({
+        schema: doppelgangerSchema,
+      }),
       system: `You are Doppelganger, an AI that finds startup "twins" - companies that attempted similar ideas in the past.
       
 Your job is to:
 1. Analyze the user's startup description
-2. Search for real startups that attempted something similar (focus on failed or acquired startups for maximum learning value)
+2. Find real startups that attempted something similar (focus on failed or acquired startups for maximum learning value)
 3. Provide a detailed, BRUTALLY HONEST analysis of that company's journey
 
-When searching, look for:
+Focus on finding:
 - Companies from Product Hunt, TechCrunch, Crunchbase
 - Failed startups in the same space
 - Acquired companies that pivoted or died
@@ -64,15 +60,15 @@ Be specific with dates, events, and lessons. The user wants REAL insights, not g
 Make the wrongMoves section brutally honest - these are autopsy lessons.
 Make recommendations concrete and actionable.
 
-IMPORTANT: Find a REAL company if possible. Use web search to verify facts. If you can't find a perfect match, find the closest comparable company and explain why it's similar.`,
+IMPORTANT: Find a REAL company if possible. If you can't find a perfect match, find the closest comparable company and explain why it's similar.`,
       prompt: `Find the startup doppelganger for this idea: "${description}"
       
-Search for real companies that attempted something similar. Focus on ones that failed, pivoted dramatically, or were acquired under difficult circumstances - these provide the best lessons.
+Search your knowledge for real companies that attempted something similar. Focus on ones that failed, pivoted dramatically, or were acquired under difficult circumstances - these provide the best lessons.
 
-Return detailed, verified information about the matching company.`,
+Return detailed information about the matching company.`,
     })
 
-    return Response.json(result.object)
+    return Response.json(output)
   } catch (error) {
     console.error('Error finding doppelganger:', error)
     return Response.json(
