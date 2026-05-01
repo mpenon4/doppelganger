@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { InteractiveCanvas } from "@/components/interactive-canvas"
 import { HUDOverlay } from "@/components/hud-overlay"
-import { ScrambleText, StaggerText, GlitchText } from "@/components/scramble-text"
+import { ScanlineText, ScanlineLogo } from "@/components/scanline-text"
 
 // Types
 interface Doppelganger {
@@ -25,6 +25,13 @@ interface Results {
   }
 }
 
+interface ArchivedAnalysis {
+  id: string
+  idea: string
+  results: Results
+  timestamp: number
+}
+
 const statusConfig = {
   ALIVE: { color: "text-green-400", border: "border-green-400/50", bg: "bg-green-400/10" },
   DEAD: { color: "text-red-500", border: "border-red-500/50", bg: "bg-red-500/10" },
@@ -41,24 +48,7 @@ const loadingLogs = [
   "> Preparing brutal verdict...",
 ]
 
-// Glitch animation variants
-const glitchVariants = {
-  hidden: { 
-    opacity: 0, 
-    y: 20,
-    filter: "blur(10px)"
-  },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    filter: "blur(0px)",
-    transition: {
-      duration: 0.5,
-      ease: [0.25, 0.46, 0.45, 0.94]
-    }
-  }
-}
-
+// Animation variants
 const sectionVariants = {
   hidden: { 
     opacity: 0, 
@@ -82,8 +72,35 @@ export default function DoppelgangerApp() {
   const [logIndex, setLogIndex] = useState(0)
   const [results, setResults] = useState<Results | null>(null)
   const [error, setError] = useState("")
+  const [archive, setArchive] = useState<ArchivedAnalysis[]>([])
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  const resultsRef = useRef<HTMLDivElement>(null)
+
+  // Load archive from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("doppelganger_archive")
+    if (saved) {
+      try {
+        setArchive(JSON.parse(saved))
+      } catch {
+        // Invalid data, ignore
+      }
+    }
+  }, [])
+
+  // Save to localStorage when results change
+  useEffect(() => {
+    if (results && idea) {
+      const newEntry: ArchivedAnalysis = {
+        id: Date.now().toString(),
+        idea: idea.slice(0, 100),
+        results,
+        timestamp: Date.now()
+      }
+      const updated = [newEntry, ...archive].slice(0, 10) // Keep last 10
+      setArchive(updated)
+      localStorage.setItem("doppelganger_archive", JSON.stringify(updated))
+    }
+  }, [results])
 
   // Cycle through loading logs
   useEffect(() => {
@@ -177,8 +194,6 @@ REQUIREMENTS:
       if (!match) throw new Error("Invalid response format")
       
       const parsed: Results = JSON.parse(match[0])
-      
-      // Sort by similarity
       parsed.doppelgangers.sort((a, b) => b.similarity - a.similarity)
       
       await new Promise((r) => setTimeout(r, 600))
@@ -206,6 +221,17 @@ REQUIREMENTS:
     setTimeout(() => inputRef.current?.focus(), 100)
   }
 
+  function loadFromArchive(entry: ArchivedAnalysis) {
+    setIdea(entry.idea)
+    setResults(entry.results)
+    setPhase("results")
+  }
+
+  function clearArchive() {
+    setArchive([])
+    localStorage.removeItem("doppelganger_archive")
+  }
+
   return (
     <div className="min-h-screen bg-[#000] text-[#e5e5e5] overflow-x-hidden">
       {/* Interactive Background */}
@@ -214,32 +240,14 @@ REQUIREMENTS:
       {/* HUD Overlay */}
       <HUDOverlay />
 
-      {/* Navigation */}
-      <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 md:px-8 py-4 bg-[#000]/90 backdrop-blur-sm border-b border-[#FF4D00]/20">
-        <div className="flex items-center gap-1">
-          <ScrambleText 
-            text="DOPPELGANGER" 
-            className="font-mono text-sm md:text-base tracking-[0.15em] font-bold text-[#FF4D00] animate-flicker"
-            hover
-          />
-        </div>
-        
-        <div className="hidden md:flex items-center gap-8">
-          {["EXPLORE", "ANALYZE", "DIFFERENTIATE"].map((item, i) => (
-            <ScrambleText
-              key={item}
-              text={item}
-              className="font-mono text-[10px] tracking-[0.2em] text-[#666] hover:text-[#FF4D00] cursor-pointer transition-colors"
-              delay={200 + i * 100}
-              hover
-            />
-          ))}
-        </div>
-
-        <button className="font-mono text-[10px] tracking-[0.15em] border border-[#333] px-4 py-2 hover:border-[#FF4D00] hover:text-[#FF4D00] transition-all">
-          SIGN IN
-        </button>
-      </nav>
+      {/* Minimal Header - Logo Only */}
+      <header className="fixed top-0 inset-x-0 z-50 flex items-center justify-center px-4 md:px-8 py-5 bg-[#000]/80 backdrop-blur-sm">
+        <ScanlineLogo 
+          text="DOPPELGANGER" 
+          className="font-mono text-sm md:text-base tracking-[0.2em] font-bold text-[#FF4D00]"
+          scanColor="#00d4ff"
+        />
+      </header>
 
       {/* Main Content */}
       <main className="relative min-h-screen">
@@ -269,10 +277,15 @@ REQUIREMENTS:
                 className="text-center mb-4 md:mb-6"
               >
                 <span className="block font-sans font-black text-[11vw] md:text-[7vw] lg:text-[5vw] leading-[0.95] tracking-tight text-[#e5e5e5]">
-                  <StaggerText text="BUILD DIFFERENT." delay={0.4} />
+                  BUILD DIFFERENT.
                 </span>
                 <span className="block font-sans font-black text-[11vw] md:text-[7vw] lg:text-[5vw] leading-[0.95] tracking-tight">
-                  <GlitchText text="BECAUSE THEY DIDN'T." className="text-[#FF4D00]" />
+                  <ScanlineText 
+                    text="BECAUSE THEY DIDN'T." 
+                    className="text-[#FF4D00]" 
+                    scanColor="#00d4ff"
+                    delay={500}
+                  />
                 </span>
               </motion.h1>
 
@@ -304,7 +317,11 @@ REQUIREMENTS:
                     className="bg-[#0a0a0a]/80 border border-[#FF4D00]/20 p-4 md:p-5 text-center hover:border-[#FF4D00]/50 transition-colors"
                   >
                     <p className="font-mono text-xl md:text-2xl font-bold text-[#FF4D00] mb-1">
-                      {stat.value}
+                      {i === 0 ? (
+                        <ScanlineText text={stat.value} scanColor="#00d4ff" delay={700 + i * 100} />
+                      ) : (
+                        stat.value
+                      )}
                     </p>
                     <p className="font-mono text-[9px] md:text-[10px] text-[#666] leading-tight">
                       {stat.label}
@@ -347,6 +364,51 @@ REQUIREMENTS:
                   <p className="mt-4 font-mono text-[11px] text-red-400 text-center">{error}</p>
                 )}
               </motion.div>
+
+              {/* Local Archive */}
+              {archive.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.9 }}
+                  className="w-full max-w-2xl px-4 mt-12"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-mono text-[10px] tracking-[0.2em] text-[#666] flex items-center gap-2">
+                      <span className="w-4 h-[1px] bg-[#333]" />
+                      LOCAL ARCHIVE
+                      <span className="text-[#444]">({archive.length})</span>
+                    </h3>
+                    <button 
+                      onClick={clearArchive}
+                      className="font-mono text-[9px] text-[#444] hover:text-red-400 transition-colors"
+                    >
+                      [CLEAR]
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {archive.slice(0, 5).map((entry) => (
+                      <button
+                        key={entry.id}
+                        onClick={() => loadFromArchive(entry)}
+                        className="w-full text-left bg-[#0a0a0a]/50 border border-[#1a1a1a] p-3 hover:border-[#FF4D00]/30 transition-colors group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="font-mono text-[11px] text-[#888] truncate flex-1 mr-4 group-hover:text-[#e5e5e5] transition-colors">
+                            {entry.idea}
+                          </p>
+                          <span className="font-mono text-[9px] text-[#444] shrink-0">
+                            {new Date(entry.timestamp).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="font-mono text-[9px] text-[#FF4D00]/70 mt-1 truncate">
+                          {entry.results.verdict.title}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
             </motion.div>
           )}
 
@@ -392,7 +454,6 @@ REQUIREMENTS:
           {phase === "results" && results && (
             <motion.div
               key="results"
-              ref={resultsRef}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="min-h-screen px-4 md:px-6 pt-24 pb-20"
@@ -408,7 +469,7 @@ REQUIREMENTS:
                 >
                   <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
                     <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    <ScrambleText text="A. DOPPELGANGERS FOUND" className="text-[#FF4D00]" delay={100} />
+                    <ScanlineText text="A. DOPPELGANGERS FOUND" className="text-[#FF4D00]" scanColor="#00d4ff" delay={100} />
                     <span className="text-[#666]">({results.doppelgangers.length})</span>
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
@@ -454,7 +515,7 @@ REQUIREMENTS:
                 >
                   <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
                     <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    <ScrambleText text="B. THE AUTOPSY" className="text-[#FF4D00]" delay={300} />
+                    <ScanlineText text="B. THE AUTOPSY" className="text-[#FF4D00]" scanColor="#00d4ff" delay={300} />
                     <span className="text-[#666]">(Problems &amp; Feedback)</span>
                   </h3>
                   <div className="bg-[#0a0a0a] border border-[#FF4D00]/20 p-4 md:p-6 space-y-3">
@@ -482,7 +543,7 @@ REQUIREMENTS:
                 >
                   <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
                     <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    <ScrambleText text="C. OPPORTUNITY MAPPING" className="text-[#FF4D00]" delay={500} />
+                    <ScanlineText text="C. OPPORTUNITY MAPPING" className="text-[#FF4D00]" scanColor="#00d4ff" delay={500} />
                   </h3>
                   <div className="bg-[#0a0a0a] border border-[#FF4D00]/20 p-4 md:p-6 space-y-3">
                     {results.opportunities.map((item, i) => (
@@ -502,14 +563,14 @@ REQUIREMENTS:
 
                 {/* D. FINAL VERDICT */}
                 <motion.section
-                  variants={glitchVariants}
+                  variants={sectionVariants}
                   initial="hidden"
                   animate="visible"
                   transition={{ delay: 0.8 }}
                 >
                   <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
                     <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    <ScrambleText text="D. FINAL VERDICT" className="text-[#FF4D00]" delay={700} />
+                    <ScanlineText text="D. FINAL VERDICT" className="text-[#FF4D00]" scanColor="#00d4ff" delay={700} />
                   </h3>
                   <div className="border border-[#FF4D00] p-6 md:p-10 text-center relative overflow-hidden bg-[#0a0a0a]">
                     <div className="absolute inset-0 bg-gradient-to-b from-[#FF4D00]/10 to-transparent" />
@@ -519,7 +580,7 @@ REQUIREMENTS:
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ delay: 1, duration: 0.4 }}
                     >
-                      <GlitchText text={results.verdict.title} className="text-[#FF4D00]" />
+                      <ScanlineText text={results.verdict.title} className="text-[#FF4D00]" scanColor="#00d4ff" />
                     </motion.h2>
                     <motion.p 
                       className="relative font-mono text-[11px] md:text-[13px] text-[#888] max-w-2xl mx-auto leading-relaxed"
@@ -541,15 +602,15 @@ REQUIREMENTS:
                 >
                   <button
                     onClick={reset}
-                    className="group w-full sm:w-auto font-mono text-[10px] md:text-[11px] tracking-[0.15em] border border-[#333] px-8 py-3 hover:border-[#FF4D00] hover:text-[#FF4D00] transition-all"
+                    className="w-full sm:w-auto font-mono text-[10px] md:text-[11px] tracking-[0.15em] border border-[#333] px-8 py-3 hover:border-[#FF4D00] hover:text-[#FF4D00] transition-all"
                   >
-                    <ScrambleText text="[NEW SEARCH]" hover />
+                    [NEW SEARCH]
                   </button>
                   <button
                     onClick={reIterate}
-                    className="group w-full sm:w-auto font-mono text-[10px] md:text-[11px] tracking-[0.15em] bg-[#FF4D00] text-[#000] px-8 py-3 hover:bg-[#ff6a33] transition-all font-bold"
+                    className="w-full sm:w-auto font-mono text-[10px] md:text-[11px] tracking-[0.15em] bg-[#FF4D00] text-[#000] px-8 py-3 hover:bg-[#ff6a33] transition-all font-bold"
                   >
-                    <ScrambleText text="[RE-ITERATE IDEA]" hover />
+                    [RE-ITERATE IDEA]
                   </button>
                 </motion.div>
               </div>
