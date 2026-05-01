@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { InteractiveCanvas } from "@/components/interactive-canvas"
 import { HUDOverlay } from "@/components/hud-overlay"
-import { ScanlineText, ScanlineLogo } from "@/components/scanline-text"
+
 import { SystemLog } from "@/components/system-log"
 
 // Types
@@ -246,11 +246,9 @@ REQUIREMENTS:
 
       {/* Minimal Header - Logo Only */}
       <header className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 md:px-8 py-4 bg-[#000]/90 backdrop-blur-sm border-b border-[#1a1a1a]">
-        <ScanlineLogo 
-          text="DOPPELGANGER" 
-          className="font-mono text-lg md:text-xl lg:text-2xl tracking-[0.25em] font-black text-[#FF4D00]"
-          scanColor="#00d4ff"
-        />
+        <span className="font-mono text-lg md:text-xl lg:text-2xl tracking-[0.25em] font-black text-[#FF4D00]">
+          DOPPELGANGER
+        </span>
         <span className="font-mono text-[8px] md:text-[9px] text-[#333] tracking-wider">v2.1.0</span>
       </header>
 
@@ -284,13 +282,8 @@ REQUIREMENTS:
                 <span className="block font-sans font-black text-[11vw] md:text-[7vw] lg:text-[5vw] leading-[0.95] tracking-tight text-[#e5e5e5]">
                   BUILD DIFFERENT.
                 </span>
-                <span className="block font-sans font-black text-[11vw] md:text-[7vw] lg:text-[5vw] leading-[0.95] tracking-tight">
-                  <ScanlineText 
-                    text="BECAUSE THEY DIDN'T." 
-                    className="text-[#FF4D00]" 
-                    scanColor="#00d4ff"
-                    delay={500}
-                  />
+                <span className="block font-sans font-black text-[11vw] md:text-[7vw] lg:text-[5vw] leading-[0.95] tracking-tight text-[#FF4D00]">
+                  BECAUSE THEY DIDN&apos;T.
                 </span>
               </motion.h1>
 
@@ -322,11 +315,7 @@ REQUIREMENTS:
                     className="bg-[#0a0a0a]/80 border border-[#FF4D00]/20 p-4 md:p-5 text-center hover:border-[#FF4D00]/50 transition-colors"
                   >
                     <p className="font-mono text-xl md:text-2xl font-bold text-[#FF4D00] mb-1">
-                      {i === 0 ? (
-                        <ScanlineText text={stat.value} scanColor="#00d4ff" delay={700 + i * 100} />
-                      ) : (
-                        stat.value
-                      )}
+                      {stat.value}
                     </p>
                     <p className="font-mono text-[9px] md:text-[10px] text-[#666] leading-tight">
                       {stat.label}
@@ -474,7 +463,7 @@ REQUIREMENTS:
                 >
                   <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
                     <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    <ScanlineText text="A. DOPPELGANGERS FOUND" className="text-[#FF4D00]" scanColor="#00d4ff" delay={100} />
+                    A. DOPPELGANGERS FOUND
                     <span className="text-[#666]">({results.doppelgangers.length})</span>
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
@@ -534,7 +523,7 @@ REQUIREMENTS:
                 >
                   <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
                     <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    <ScanlineText text="B. THE AUTOPSY" className="text-[#FF4D00]" scanColor="#00d4ff" delay={300} />
+                    B. THE AUTOPSY
                     <span className="text-[#666]">(Problems &amp; Feedback)</span>
                   </h3>
                   <div className="bg-[#0a0a0a] border border-[#FF4D00]/20 p-4 md:p-6 space-y-3">
@@ -562,7 +551,7 @@ REQUIREMENTS:
                 >
                   <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
                     <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    <ScanlineText text="C. OPPORTUNITY MAPPING" className="text-[#FF4D00]" scanColor="#00d4ff" delay={500} />
+                    C. OPPORTUNITY MAPPING
                   </h3>
                   <div className="bg-[#0a0a0a] border border-[#FF4D00]/20 p-4 md:p-6 space-y-3">
                     {results.opportunities.map((item, i) => (
