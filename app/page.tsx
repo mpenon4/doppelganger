@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { InteractiveCanvas } from "@/components/interactive-canvas"
 import { HUDOverlay } from "@/components/hud-overlay"
+import { ScrambleText, StaggerText, GlitchText } from "@/components/scramble-text"
 
 // Types
 interface Doppelganger {
@@ -216,17 +217,22 @@ REQUIREMENTS:
       {/* Navigation */}
       <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 md:px-8 py-4 bg-[#000]/90 backdrop-blur-sm border-b border-[#FF4D00]/20">
         <div className="flex items-center gap-1">
-          <span className="font-mono text-sm md:text-base tracking-[0.15em] font-bold text-[#FF4D00]">DOPPELGANGER</span>
+          <ScrambleText 
+            text="DOPPELGANGER" 
+            className="font-mono text-sm md:text-base tracking-[0.15em] font-bold text-[#FF4D00] animate-flicker"
+            hover
+          />
         </div>
         
         <div className="hidden md:flex items-center gap-8">
-          {["EXPLORE", "ANALYZE", "DIFFERENTIATE"].map((item) => (
-            <span
+          {["EXPLORE", "ANALYZE", "DIFFERENTIATE"].map((item, i) => (
+            <ScrambleText
               key={item}
+              text={item}
               className="font-mono text-[10px] tracking-[0.2em] text-[#666] hover:text-[#FF4D00] cursor-pointer transition-colors"
-            >
-              {item}
-            </span>
+              delay={200 + i * 100}
+              hover
+            />
           ))}
         </div>
 
@@ -263,10 +269,10 @@ REQUIREMENTS:
                 className="text-center mb-4 md:mb-6"
               >
                 <span className="block font-sans font-black text-[11vw] md:text-[7vw] lg:text-[5vw] leading-[0.95] tracking-tight text-[#e5e5e5]">
-                  BUILD DIFFERENT.
+                  <StaggerText text="BUILD DIFFERENT." delay={0.4} />
                 </span>
-                <span className="block font-sans font-black text-[11vw] md:text-[7vw] lg:text-[5vw] leading-[0.95] tracking-tight text-[#FF4D00]">
-                  BECAUSE THEY DIDN&apos;T.
+                <span className="block font-sans font-black text-[11vw] md:text-[7vw] lg:text-[5vw] leading-[0.95] tracking-tight">
+                  <GlitchText text="BECAUSE THEY DIDN'T." className="text-[#FF4D00]" />
                 </span>
               </motion.h1>
 
@@ -402,7 +408,7 @@ REQUIREMENTS:
                 >
                   <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
                     <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    A. DOPPELGANGERS FOUND
+                    <ScrambleText text="A. DOPPELGANGERS FOUND" className="text-[#FF4D00]" delay={100} />
                     <span className="text-[#666]">({results.doppelgangers.length})</span>
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
@@ -448,7 +454,7 @@ REQUIREMENTS:
                 >
                   <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
                     <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    B. THE AUTOPSY
+                    <ScrambleText text="B. THE AUTOPSY" className="text-[#FF4D00]" delay={300} />
                     <span className="text-[#666]">(Problems &amp; Feedback)</span>
                   </h3>
                   <div className="bg-[#0a0a0a] border border-[#FF4D00]/20 p-4 md:p-6 space-y-3">
@@ -476,7 +482,7 @@ REQUIREMENTS:
                 >
                   <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
                     <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    C. OPPORTUNITY MAPPING
+                    <ScrambleText text="C. OPPORTUNITY MAPPING" className="text-[#FF4D00]" delay={500} />
                   </h3>
                   <div className="bg-[#0a0a0a] border border-[#FF4D00]/20 p-4 md:p-6 space-y-3">
                     {results.opportunities.map((item, i) => (
@@ -503,17 +509,17 @@ REQUIREMENTS:
                 >
                   <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
                     <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    D. FINAL VERDICT
+                    <ScrambleText text="D. FINAL VERDICT" className="text-[#FF4D00]" delay={700} />
                   </h3>
                   <div className="border border-[#FF4D00] p-6 md:p-10 text-center relative overflow-hidden bg-[#0a0a0a]">
                     <div className="absolute inset-0 bg-gradient-to-b from-[#FF4D00]/10 to-transparent" />
                     <motion.h2 
-                      className="relative font-sans font-black text-2xl md:text-4xl lg:text-5xl tracking-tight mb-4 text-[#e5e5e5]"
+                      className="relative font-sans font-black text-2xl md:text-4xl lg:text-5xl tracking-tight mb-4"
                       initial={{ scale: 0.9, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ delay: 1, duration: 0.4 }}
                     >
-                      {results.verdict.title}
+                      <GlitchText text={results.verdict.title} className="text-[#FF4D00]" />
                     </motion.h2>
                     <motion.p 
                       className="relative font-mono text-[11px] md:text-[13px] text-[#888] max-w-2xl mx-auto leading-relaxed"
@@ -535,15 +541,15 @@ REQUIREMENTS:
                 >
                   <button
                     onClick={reset}
-                    className="w-full sm:w-auto font-mono text-[10px] md:text-[11px] tracking-[0.15em] border border-[#333] px-8 py-3 hover:border-[#FF4D00] hover:text-[#FF4D00] transition-all"
+                    className="group w-full sm:w-auto font-mono text-[10px] md:text-[11px] tracking-[0.15em] border border-[#333] px-8 py-3 hover:border-[#FF4D00] hover:text-[#FF4D00] transition-all"
                   >
-                    [NEW SEARCH]
+                    <ScrambleText text="[NEW SEARCH]" hover />
                   </button>
                   <button
                     onClick={reIterate}
-                    className="w-full sm:w-auto font-mono text-[10px] md:text-[11px] tracking-[0.15em] bg-[#FF4D00] text-[#000] px-8 py-3 hover:bg-[#ff6a33] transition-all font-bold"
+                    className="group w-full sm:w-auto font-mono text-[10px] md:text-[11px] tracking-[0.15em] bg-[#FF4D00] text-[#000] px-8 py-3 hover:bg-[#ff6a33] transition-all font-bold"
                   >
-                    [RE-ITERATE IDEA]
+                    <ScrambleText text="[RE-ITERATE IDEA]" hover />
                   </button>
                 </motion.div>
               </div>

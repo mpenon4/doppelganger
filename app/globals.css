@@ -88,3 +88,41 @@ body::before {
 .no-transitions * {
   transition: none !important;
 }
+
+/* Glitch animations */
+@keyframes glitch-1 {
+  0%, 100% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+}
+
+@keyframes glitch-2 {
+  0%, 100% { transform: translate(0); }
+  20% { transform: translate(2px, -2px); }
+  40% { transform: translate(2px, 2px); }
+  60% { transform: translate(-2px, -2px); }
+  80% { transform: translate(-2px, 2px); }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+  52% { opacity: 1; }
+  54% { opacity: 0.9; }
+  56% { opacity: 1; }
+}
+
+.animate-glitch-1 {
+  animation: glitch-1 0.3s infinite linear alternate-reverse;
+}
+
+.animate-glitch-2 {
+  animation: glitch-2 0.3s infinite linear alternate-reverse;
+  animation-delay: 0.15s;
+}
+
+.animate-flicker {
+  animation: flicker 2s infinite;
+}
