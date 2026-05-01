@@ -39,6 +39,107 @@ const statusConfig = {
   ACQUIRED: { color: "text-blue-400", border: "border-blue-400/50", bg: "bg-blue-400/10" },
 }
 
+type Language = "EN" | "ES" | "PT" | "FR" | "DE"
+
+const translations: Record<Language, {
+  tagline: string
+  title1: string
+  title2: string
+  subtitle: string
+  placeholder: string
+  stats: { value: string; label: string }[]
+  sections: { a: string; b: string; c: string; d: string }
+  buttons: { newSearch: string; reIterate: string }
+  archive: string
+  clear: string
+}> = {
+  EN: {
+    tagline: "THE INTELLIGENCE TO BUILD WHAT'S NEXT",
+    title1: "BUILD DIFFERENT.",
+    title2: "BECAUSE THEY DIDN'T.",
+    subtitle: "Validate your startup idea. Discover the state of play, learn from mistakes, and build what others missed.",
+    placeholder: "Describe your startup idea...",
+    stats: [
+      { value: "12,847", label: "Active Startups Today" },
+      { value: "86%", label: "Fail Due to Avoidable Errors" },
+      { value: "4.7M+", label: "Lessons from Failure" },
+      { value: "∞", label: "Opportunities to Be Different" },
+    ],
+    sections: { a: "A. DOPPELGANGERS FOUND", b: "B. THE AUTOPSY", c: "C. OPPORTUNITY MAPPING", d: "D. FINAL VERDICT" },
+    buttons: { newSearch: "[NEW SEARCH]", reIterate: "[RE-ITERATE IDEA]" },
+    archive: "LOCAL ARCHIVE",
+    clear: "[CLEAR]",
+  },
+  ES: {
+    tagline: "LA INTELIGENCIA PARA CONSTRUIR LO QUE VIENE",
+    title1: "CONSTRUYE DIFERENTE.",
+    title2: "PORQUE ELLOS NO LO HICIERON.",
+    subtitle: "Valida tu idea de startup. Descubre el estado actual, aprende de los errores y construye lo que otros no vieron.",
+    placeholder: "Describe tu idea de startup...",
+    stats: [
+      { value: "12,847", label: "Startups Activas Hoy" },
+      { value: "86%", label: "Fallan por Errores Evitables" },
+      { value: "4.7M+", label: "Lecciones del Fracaso" },
+      { value: "∞", label: "Oportunidades de Diferenciarte" },
+    ],
+    sections: { a: "A. DOPPELGANGERS ENCONTRADOS", b: "B. LA AUTOPSIA", c: "C. MAPEO DE OPORTUNIDADES", d: "D. VEREDICTO FINAL" },
+    buttons: { newSearch: "[NUEVA BUSQUEDA]", reIterate: "[RE-ITERAR IDEA]" },
+    archive: "ARCHIVO LOCAL",
+    clear: "[LIMPIAR]",
+  },
+  PT: {
+    tagline: "A INTELIGENCIA PARA CONSTRUIR O QUE VEM",
+    title1: "CONSTRUA DIFERENTE.",
+    title2: "PORQUE ELES NAO FIZERAM.",
+    subtitle: "Valide sua ideia de startup. Descubra o estado atual, aprenda com os erros e construa o que outros perderam.",
+    placeholder: "Descreva sua ideia de startup...",
+    stats: [
+      { value: "12,847", label: "Startups Ativas Hoje" },
+      { value: "86%", label: "Falham por Erros Evitaveis" },
+      { value: "4.7M+", label: "Licoes do Fracasso" },
+      { value: "∞", label: "Oportunidades de Diferenciar" },
+    ],
+    sections: { a: "A. DOPPELGANGERS ENCONTRADOS", b: "B. A AUTOPSIA", c: "C. MAPEAMENTO DE OPORTUNIDADES", d: "D. VEREDITO FINAL" },
+    buttons: { newSearch: "[NOVA BUSCA]", reIterate: "[RE-ITERAR IDEIA]" },
+    archive: "ARQUIVO LOCAL",
+    clear: "[LIMPAR]",
+  },
+  FR: {
+    tagline: "L'INTELLIGENCE POUR CONSTRUIRE L'AVENIR",
+    title1: "CONSTRUISEZ DIFFERENT.",
+    title2: "PARCE QU'ILS NE L'ONT PAS FAIT.",
+    subtitle: "Validez votre idee de startup. Decouvrez l'etat du marche, apprenez des erreurs et construisez ce que les autres ont manque.",
+    placeholder: "Decrivez votre idee de startup...",
+    stats: [
+      { value: "12,847", label: "Startups Actives Aujourd'hui" },
+      { value: "86%", label: "Echouent par Erreurs Evitables" },
+      { value: "4.7M+", label: "Lecons de l'Echec" },
+      { value: "∞", label: "Opportunites de Differenciation" },
+    ],
+    sections: { a: "A. DOPPELGANGERS TROUVES", b: "B. L'AUTOPSIE", c: "C. CARTOGRAPHIE DES OPPORTUNITES", d: "D. VERDICT FINAL" },
+    buttons: { newSearch: "[NOUVELLE RECHERCHE]", reIterate: "[RE-ITERER L'IDEE]" },
+    archive: "ARCHIVE LOCALE",
+    clear: "[EFFACER]",
+  },
+  DE: {
+    tagline: "DIE INTELLIGENZ UM DAS NACHSTE ZU BAUEN",
+    title1: "BAU ANDERS.",
+    title2: "WEIL SIE ES NICHT GETAN HABEN.",
+    subtitle: "Validiere deine Startup-Idee. Entdecke den Stand der Dinge, lerne aus Fehlern und baue was andere verpasst haben.",
+    placeholder: "Beschreibe deine Startup-Idee...",
+    stats: [
+      { value: "12,847", label: "Aktive Startups Heute" },
+      { value: "86%", label: "Scheitern an Vermeidbaren Fehlern" },
+      { value: "4.7M+", label: "Lektionen aus Misserfolg" },
+      { value: "∞", label: "Moglichkeiten Anders zu Sein" },
+    ],
+    sections: { a: "A. DOPPELGANGER GEFUNDEN", b: "B. DIE AUTOPSIE", c: "C. CHANCEN-MAPPING", d: "D. ENDGULTIGES URTEIL" },
+    buttons: { newSearch: "[NEUE SUCHE]", reIterate: "[IDEE UBERARBEITEN]" },
+    archive: "LOKALES ARCHIV",
+    clear: "[LOSCHEN]",
+  },
+}
+
 const loadingLogs = [
   "> Initializing DOPPELGANGER engine...",
   "> Connecting to startup graveyards...",
