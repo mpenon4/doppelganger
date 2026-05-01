@@ -589,17 +589,17 @@ REQUIREMENTS:
                 >
                   <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
                     <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    <ScanlineText text="D. FINAL VERDICT" className="text-[#FF4D00]" scanColor="#00d4ff" delay={700} />
+                    D. FINAL VERDICT
                   </h3>
-                  <div className="border border-[#FF4D00] p-6 md:p-10 text-center relative overflow-hidden bg-[#0a0a0a]">
-                    <div className="absolute inset-0 bg-gradient-to-b from-[#FF4D00]/10 to-transparent" />
+                  <div className="border-2 border-[#FF4D00] p-8 md:p-12 text-center relative overflow-hidden bg-[#0a0a0a]">
+                    <div className="absolute inset-0 bg-gradient-to-b from-[#FF4D00]/20 to-transparent" />
                     <motion.h2 
-                      className="relative font-sans font-black text-2xl md:text-4xl lg:text-5xl tracking-tight mb-4"
+                      className="relative font-sans font-black text-3xl md:text-5xl lg:text-6xl tracking-tight mb-6 text-[#FF4D00]"
                       initial={{ scale: 0.9, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 1, duration: 0.4 }}
+                      transition={{ delay: 0.5, duration: 0.4 }}
                     >
-                      <ScanlineText text={results.verdict.title} className="text-[#FF4D00]" scanColor="#00d4ff" />
+                      {results.verdict.title}
                     </motion.h2>
                     <motion.p 
                       className="relative font-mono text-[11px] md:text-[13px] text-[#888] max-w-2xl mx-auto leading-relaxed"
