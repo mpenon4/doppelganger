@@ -28,6 +28,8 @@ const doppelgangerSchema = z.object({
 })
 
 export async function POST(request: Request) {
+  console.log('[v0] GROQ_API_KEY exists:', !!process.env.GROQ_API_KEY)
+  
   try {
     const { description } = await request.json()
 
