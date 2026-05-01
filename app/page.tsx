@@ -2,155 +2,171 @@
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import gsap from "gsap"
-import dynamic from "next/dynamic"
+import { InteractiveCanvas } from "@/components/interactive-canvas"
+import { HUDOverlay } from "@/components/hud-overlay"
 
-const Globe3D = dynamic(() => import("@/components/globe-3d").then(mod => mod.Globe3D), { 
-  ssr: false,
-  loading: () => <div className="w-full h-full bg-black" />
-})
+import { SystemLog } from "@/components/system-log"
 
 // Types
 interface Doppelganger {
   name: string
   founded: string
   similarity: number
-  status: "alive" | "dead" | "acquired" | "pivot"
-  tags: string[]
-  journey: string
-}
-
-interface Difference {
-  dimension: string
-  they_did: string
-  you_could: string
+  status: "ALIVE" | "DEAD" | "ACQUIRED"
+  reason: string
 }
 
 interface Results {
   doppelgangers: Doppelganger[]
-  differences: Difference[]
-  fatal_mistakes: string[]
-  winning_moves: string[]
+  autopsy: string[]
+  opportunities: string[]
   verdict: {
-    headline: string
+    title: string
     summary: string
   }
 }
 
-const statusStyles: Record<string, string> = {
-  alive: "border-white/40 text-white",
-  dead: "border-accent/40 text-accent",
-  acquired: "border-white/40 text-white",
-  pivot: "border-white/20 text-white/60",
+interface ArchivedAnalysis {
+  id: string
+  idea: string
+  results: Results
+  timestamp: number
 }
 
-const loadingPhrases = [
-  "SCANNING GLOBAL DATABASES",
-  "CROSS-REFERENCING PATTERNS",
-  "ANALYZING MARKET SIGNALS",
-  "DECODING STARTUP DNA",
-  "MAPPING TRAJECTORIES",
-  "COMPUTING SIMILARITIES",
+const statusConfig = {
+  ALIVE: { color: "text-green-400", border: "border-green-400/50", bg: "bg-green-400/10" },
+  DEAD: { color: "text-red-500", border: "border-red-500/50", bg: "bg-red-500/10" },
+  ACQUIRED: { color: "text-blue-400", border: "border-blue-400/50", bg: "bg-blue-400/10" },
+}
+
+const loadingLogs = [
+  "> Initializing DOPPELGANGER engine...",
+  "> Connecting to startup graveyards...",
+  "> Scanning 38,420 startup post-mortems...",
+  "> Cross-referencing failure patterns...",
+  "> Analyzing market saturation levels...",
+  "> Computing differentiation vectors...",
+  "> Preparing brutal verdict...",
 ]
+
+// Animation variants
+const sectionVariants = {
+  hidden: { 
+    opacity: 0, 
+    x: -30,
+    filter: "blur(4px)"
+  },
+  visible: { 
+    opacity: 1, 
+    x: 0,
+    filter: "blur(0px)",
+    transition: {
+      duration: 0.6,
+      ease: [0.25, 0.46, 0.45, 0.94]
+    }
+  }
+}
 
 export default function DoppelgangerApp() {
   const [idea, setIdea] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [loadingPhrase, setLoadingPhrase] = useState(0)
-  const [error, setError] = useState("")
+  const [phase, setPhase] = useState<"idle" | "loading" | "results">("idle")
+  const [logIndex, setLogIndex] = useState(0)
   const [results, setResults] = useState<Results | null>(null)
-  const titleRef = useRef<HTMLHeadingElement>(null)
+  const [error, setError] = useState("")
+  const [archive, setArchive] = useState<ArchivedAnalysis[]>([])
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
+  // Load archive from localStorage
   useEffect(() => {
-    if (loading) {
-      const interval = setInterval(() => {
-        setLoadingPhrase(p => (p + 1) % loadingPhrases.length)
-      }, 800)
-      return () => clearInterval(interval)
-    }
-  }, [loading])
-
-  useEffect(() => {
-    if (titleRef.current) {
-      gsap.fromTo(
-        titleRef.current.querySelectorAll("span"),
-        { y: 100, opacity: 0 },
-        { y: 0, opacity: 1, stagger: 0.05, duration: 0.8, ease: "power4.out" }
-      )
+    const saved = localStorage.getItem("doppelganger_archive")
+    if (saved) {
+      try {
+        setArchive(JSON.parse(saved))
+      } catch {
+        // Invalid data, ignore
+      }
     }
   }, [])
 
-  async function findDoppelganger() {
-    if (!idea.trim()) return
-    setLoading(true)
+  // Save to localStorage when results change
+  useEffect(() => {
+    if (results && idea) {
+      const newEntry: ArchivedAnalysis = {
+        id: Date.now().toString(),
+        idea: idea.slice(0, 100),
+        results,
+        timestamp: Date.now()
+      }
+      const updated = [newEntry, ...archive].slice(0, 10) // Keep last 10
+      setArchive(updated)
+      localStorage.setItem("doppelganger_archive", JSON.stringify(updated))
+    }
+  }, [results])
+
+  // Cycle through loading logs
+  useEffect(() => {
+    if (phase === "loading") {
+      const interval = setInterval(() => {
+        setLogIndex((i) => (i + 1) % loadingLogs.length)
+      }, 700)
+      return () => clearInterval(interval)
+    }
+  }, [phase])
+
+  // Ctrl+Enter shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && idea.trim() && phase === "idle") {
+        handleSubmit()
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [idea, phase])
+
+  async function handleSubmit() {
+    if (!idea.trim() || phase !== "idle") return
+    setPhase("loading")
     setError("")
-    setProgress(0)
+    setLogIndex(0)
 
-    const ticker = setInterval(() => {
-      setProgress(p => Math.min(p + Math.random() * 8, 90))
-    }, 200)
+    const prompt = `You are a brutally honest startup analyst with access to comprehensive startup data. Analyze this startup idea and find real companies that tried similar things.
 
-    const prompt = `You are a world-class startup analyst with deep knowledge of the global startup ecosystem.
+STARTUP IDEA: "${idea}"
 
-The user has this startup idea: "${idea}"
-
-Find their doppelganger startups, analyze differences, and give winning strategies.
-
-Return ONLY a valid JSON object. No markdown, no backticks, no extra text.
-
+Return ONLY valid JSON (no markdown, no code blocks, no backticks):
 {
   "doppelgangers": [
     {
       "name": "Real company name",
-      "founded": "Year",
-      "similarity": 82,
-      "status": "alive|dead|acquired|pivot",
-      "tags": ["tag1", "tag2", "tag3"],
-      "journey": "3 sentences: how they started, what happened, current status and key lesson."
-    },
-    {
-      "name": "Second real company",
-      "founded": "Year",
-      "similarity": 67,
-      "status": "alive|dead|acquired|pivot",
-      "tags": ["tag1", "tag2"],
-      "journey": "3 sentences about their journey and lesson."
-    },
-    {
-      "name": "Third real company",
-      "founded": "Year",
-      "similarity": 55,
-      "status": "alive|dead|acquired|pivot",
-      "tags": ["tag1", "tag2"],
-      "journey": "3 sentences about their journey and lesson."
+      "founded": "2019",
+      "similarity": 85,
+      "status": "DEAD",
+      "reason": "Specific reason for failure/success in 1-2 sentences"
     }
   ],
-  "differences": [
-    { "dimension": "target market", "they_did": "what they targeted", "you_could": "how you could target differently" },
-    { "dimension": "business model", "they_did": "their model", "you_could": "your potential model" },
-    { "dimension": "go-to-market", "they_did": "their GTM", "you_could": "your GTM angle" },
-    { "dimension": "technology", "they_did": "their tech approach", "you_could": "your tech advantage" },
-    { "dimension": "pricing", "they_did": "their pricing", "you_could": "your pricing edge" }
+  "autopsy": [
+    "Specific technical or market failure pattern 1",
+    "Specific failure pattern 2 with concrete details",
+    "Specific failure pattern 3"
   ],
-  "fatal_mistakes": [
-    "Specific mistake these companies made that you must avoid",
-    "Second critical mistake",
-    "Third critical mistake",
-    "Fourth critical mistake"
-  ],
-  "winning_moves": [
-    "Specific actionable move with concrete detail",
-    "Second specific move",
-    "Third specific move",
-    "Fourth specific move",
-    "Fifth specific move"
+  "opportunities": [
+    "Specific technical differentiator or market gap 1",
+    "Concrete opportunity 2 they all missed",
+    "Actionable pivot suggestion 3"
   ],
   "verdict": {
-    "headline": "Short bold verdict headline (max 10 words)",
-    "summary": "2-3 sentences: honest assessment of the opportunity, the crowdedness of the space, and the single biggest lever the user has."
+    "title": "VERDICT IN 5 WORDS MAX (e.g., TOO LITTLE TOO LATE, HIGH VELOCITY POTENTIAL, GRAVEYARD IS FULL)",
+    "summary": "2-3 sentences: Brutal honest assessment of market saturation and the single biggest opportunity or fatal flaw."
   }
-}`
+}
+
+REQUIREMENTS:
+- Include 3-5 REAL doppelgangers with accurate founding years
+- Status must be exactly "DEAD", "ALIVE", or "ACQUIRED"
+- Similarity percentages between 40-95%
+- Sort doppelgangers by similarity (highest first)
+- Be specific and brutal in all assessments`
 
     try {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -161,364 +177,455 @@ Return ONLY a valid JSON object. No markdown, no backticks, no extra text.
         },
         body: JSON.stringify({
           model: "llama-3.3-70b-versatile",
-          max_tokens: 2500,
+          max_tokens: 2000,
           temperature: 0.7,
           messages: [
-            {
-              role: "system",
-              content: "You are a startup analyst. Always respond with ONLY valid JSON, no markdown formatting, no backticks, no extra text.",
-            },
+            { role: "system", content: "You are a startup analyst. Respond only with valid JSON. No markdown, no code blocks." },
             { role: "user", content: prompt },
           ],
         }),
       })
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error((err as { error?: { message?: string } }).error?.message || `API error ${res.status}`)
-      }
+      if (!res.ok) throw new Error("API request failed")
 
       const data = await res.json()
-      let raw: string = data.choices?.[0]?.message?.content ?? ""
+      let raw = data.choices?.[0]?.message?.content || ""
       raw = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim()
       const match = raw.match(/\{[\s\S]*\}/)
       if (!match) throw new Error("Invalid response format")
+      
       const parsed: Results = JSON.parse(match[0])
-
-      clearInterval(ticker)
-      setProgress(100)
-      setTimeout(() => {
-        setResults(parsed)
-        setLoading(false)
-        setProgress(0)
-      }, 500)
-    } catch (e: unknown) {
-      clearInterval(ticker)
-      setLoading(false)
-      setProgress(0)
-      setError(e instanceof Error ? e.message : "Failed to find your doppelganger. Please try again.")
+      parsed.doppelgangers.sort((a, b) => b.similarity - a.similarity)
+      
+      await new Promise((r) => setTimeout(r, 600))
+      setResults(parsed)
+      setPhase("results")
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Analysis failed")
+      setPhase("idle")
     }
   }
 
   function reset() {
+    setPhase("idle")
     setResults(null)
     setIdea("")
     setError("")
   }
 
-  // HERO VIEW
-  if (!results) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col">
-        {/* Header */}
-        <header className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 py-4 bg-background/80 backdrop-blur-sm border-b border-border">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs tracking-widest">DPLGNGR</span>
-          </div>
-          <span className="font-mono text-[10px] tracking-widest text-muted-foreground border border-border px-2 py-1">
-            V.01
-          </span>
-        </header>
-
-        {/* Main content */}
-        <main className="relative flex-1 flex flex-col items-center justify-center px-6 pt-24 pb-16">
-          {/* 3D Globe Background */}
-          <div className="absolute inset-0 opacity-30">
-            <Globe3D />
-          </div>
-
-          {/* Content */}
-          <div className="relative z-10 w-full max-w-4xl text-center">
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground mb-8"
-            >
-              STARTUP INTELLIGENCE ENGINE
-            </motion.p>
-
-            <h1 
-              ref={titleRef}
-              className="font-sans font-black text-[12vw] md:text-[10vw] lg:text-[8vw] leading-[0.85] tracking-tighter mb-8 overflow-hidden"
-            >
-              <span className="inline-block">FIND</span>{" "}
-              <span className="inline-block">YOUR</span>
-              <br />
-              <span className="inline-block text-accent glitch-text" data-text="DOPPEL">DOPPEL</span>
-              <span className="inline-block">GANGER</span>
-            </h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="font-mono text-sm text-muted-foreground mb-12 max-w-xl mx-auto"
-            >
-              Discover the startup that walked your path before you.
-              <br />
-              Learn from their journey. Avoid their mistakes.
-            </motion.p>
-
-            {/* Input */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 }}
-              className="w-full max-w-2xl mx-auto"
-            >
-              <div className="relative">
-                <textarea
-                  className="w-full bg-secondary border border-border px-6 py-5 text-sm font-mono text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-foreground transition-colors min-h-[120px]"
-                  placeholder="Describe your startup idea..."
-                  value={idea}
-                  onChange={(e) => setIdea(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) findDoppelganger()
-                  }}
-                />
-                <span className="absolute bottom-3 right-3 font-mono text-[10px] text-muted-foreground">
-                  CMD + ENTER
-                </span>
-              </div>
-
-              {error && (
-                <div className="mt-4 px-4 py-3 bg-accent/10 border border-accent/30 text-accent text-xs font-mono">
-                  {error}
-                </div>
-              )}
-
-              <button
-                onClick={findDoppelganger}
-                disabled={loading || !idea.trim()}
-                className="mt-4 w-full py-5 font-mono text-sm tracking-widest bg-foreground text-background hover:bg-foreground/90 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                {loading ? loadingPhrases[loadingPhrase] : "FIND MY DOPPELGANGER"}
-              </button>
-
-              <AnimatePresence>
-                {loading && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="mt-6"
-                  >
-                    <div className="w-full h-[2px] bg-border overflow-hidden">
-                      <motion.div
-                        className="h-full bg-foreground"
-                        style={{ width: `${progress}%` }}
-                        transition={{ duration: 0.2 }}
-                      />
-                    </div>
-                    <p className="mt-3 font-mono text-[10px] tracking-widest text-muted-foreground text-center">
-                      {Math.round(progress)}% COMPLETE
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          </div>
-
-          {/* Marquee */}
-          <div className="absolute bottom-0 left-0 right-0 border-t border-border py-3 overflow-hidden">
-            <div className="marquee whitespace-nowrap">
-              <span className="font-mono text-[10px] tracking-widest text-muted-foreground">
-                {Array(10).fill("STARTUP INTELLIGENCE • PATTERN RECOGNITION • COMPETITIVE ANALYSIS • MARKET MAPPING • ").join("")}
-              </span>
-            </div>
-          </div>
-        </main>
-      </div>
-    )
+  function reIterate() {
+    if (!results) return
+    const feedback = results.verdict.summary + " " + results.opportunities.join(". ")
+    setIdea(`${idea}\n\n[ITERATING BASED ON FEEDBACK: ${feedback}]`)
+    setPhase("idle")
+    setResults(null)
+    setTimeout(() => inputRef.current?.focus(), 100)
   }
 
-  // RESULTS VIEW
+  function loadFromArchive(entry: ArchivedAnalysis) {
+    setIdea(entry.idea)
+    setResults(entry.results)
+    setPhase("results")
+  }
+
+  function clearArchive() {
+    setArchive([])
+    localStorage.removeItem("doppelganger_archive")
+  }
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 py-4 bg-background/80 backdrop-blur-sm border-b border-border">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-xs tracking-widest">DPLGNGR</span>
-        </div>
-        <button
-          onClick={reset}
-          className="font-mono text-[10px] tracking-widest text-muted-foreground border border-border px-3 py-1.5 hover:border-foreground hover:text-foreground transition-colors"
-        >
-          NEW SEARCH
-        </button>
+    <div className="min-h-screen bg-[#000] text-[#e5e5e5] overflow-x-hidden">
+      {/* Interactive Background */}
+      <InteractiveCanvas />
+      
+      {/* HUD Overlay */}
+      <HUDOverlay />
+
+      {/* System Log - MCP Transparency */}
+      <SystemLog isActive={phase !== "idle"} phase={phase} />
+
+      {/* Minimal Header - Logo Only */}
+      <header className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 md:px-8 py-4 bg-[#000]/90 backdrop-blur-sm border-b border-[#1a1a1a]">
+        <span className="font-mono text-lg md:text-xl lg:text-2xl tracking-[0.25em] font-black text-[#FF4D00]">
+          DOPPELGANGER
+        </span>
+        <span className="font-mono text-[8px] md:text-[9px] text-[#333] tracking-wider">v2.1.0</span>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 pt-28 pb-24">
-        {/* Results Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-16"
-        >
-          <p className="font-mono text-[10px] tracking-widest text-muted-foreground mb-4">
-            ANALYSIS COMPLETE
-          </p>
-          <h2 className="font-sans font-black text-4xl md:text-6xl tracking-tight leading-none">
-            YOUR STARTUP
-            <br />
-            <span className="text-accent">DOPPELGANGERS</span>
-          </h2>
-        </motion.div>
-
-        {/* Doppelgangers */}
-        <section className="mb-20">
-          <SectionLabel index="01">KNOWN DOPPELGANGERS</SectionLabel>
-          <div className="space-y-4">
-            {results.doppelgangers.map((dp, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="group bg-secondary border border-border p-6 hover:border-foreground transition-colors"
+      {/* Main Content */}
+      <main className="relative min-h-screen">
+        <AnimatePresence mode="wait">
+          {/* IDLE STATE - Hero */}
+          {phase === "idle" && (
+            <motion.div
+              key="hero"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, y: -30 }}
+              className="min-h-screen flex flex-col items-center justify-center px-4 md:px-6 pt-20 pb-32"
+            >
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="font-mono text-[9px] md:text-[10px] tracking-[0.4em] text-[#666] mb-6 md:mb-8"
               >
-                <div className="flex items-start justify-between gap-4 mb-4">
-                  <div>
-                    <h3 className="font-sans font-black text-2xl md:text-3xl tracking-tight group-hover:text-accent transition-colors">
-                      {dp.name}
-                    </h3>
-                    <p className="font-mono text-[10px] tracking-widest text-muted-foreground mt-1">
-                      EST. {dp.founded}
+                THE INTELLIGENCE TO BUILD WHAT&apos;S NEXT
+              </motion.p>
+
+              <motion.h1
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.6 }}
+                className="text-center mb-4 md:mb-6"
+              >
+                <span className="block font-sans font-black text-[11vw] md:text-[7vw] lg:text-[5vw] leading-[0.95] tracking-tight text-[#e5e5e5]">
+                  BUILD DIFFERENT.
+                </span>
+                <span className="block font-sans font-black text-[11vw] md:text-[7vw] lg:text-[5vw] leading-[0.95] tracking-tight text-[#FF4D00]">
+                  BECAUSE THEY DIDN&apos;T.
+                </span>
+              </motion.h1>
+
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="font-mono text-[11px] md:text-[12px] text-[#666] text-center max-w-md mb-10 md:mb-12 leading-relaxed px-4"
+              >
+                Validate your startup idea. Discover the state of play, learn from
+                mistakes, and build what others missed.
+              </motion.p>
+
+              {/* Stats Row */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-12 md:mb-16 w-full max-w-3xl px-4"
+              >
+                {[
+                  { value: "12,847", label: "Active Startups Today" },
+                  { value: "86%", label: "Fail Due to Avoidable Errors" },
+                  { value: "4.7M+", label: "Lessons from Failure" },
+                  { value: "\u221E", label: "Opportunities to Be Different" },
+                ].map((stat, i) => (
+                  <div
+                    key={i}
+                    className="bg-[#0a0a0a]/80 border border-[#FF4D00]/20 p-4 md:p-5 text-center hover:border-[#FF4D00]/50 transition-colors"
+                  >
+                    <p className="font-mono text-xl md:text-2xl font-bold text-[#FF4D00] mb-1">
+                      {stat.value}
+                    </p>
+                    <p className="font-mono text-[9px] md:text-[10px] text-[#666] leading-tight">
+                      {stat.label}
                     </p>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-mono text-3xl font-bold">{dp.similarity}%</p>
-                    <p className="font-mono text-[10px] tracking-widest text-muted-foreground">MATCH</p>
+                ))}
+              </motion.div>
+
+              {/* Search Terminal */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+                className="w-full max-w-2xl px-4"
+              >
+                <div className="relative bg-[#0a0a0a] border border-[#FF4D00]/30 shadow-[0_0_30px_rgba(255,77,0,0.1)]">
+                  <textarea
+                    ref={inputRef}
+                    value={idea}
+                    onChange={(e) => setIdea(e.target.value)}
+                    placeholder="Describe your startup idea..."
+                    rows={3}
+                    className="w-full bg-transparent px-5 py-4 text-[13px] md:text-[14px] font-mono text-[#e5e5e5] placeholder:text-[#444] resize-none focus:outline-none"
+                  />
+                  <div className="absolute bottom-3 right-3 flex items-center gap-3">
+                    <span className="hidden sm:block font-mono text-[9px] text-[#444]">CTRL + ENTER</span>
+                    <button
+                      onClick={handleSubmit}
+                      disabled={!idea.trim()}
+                      className="w-9 h-9 flex items-center justify-center bg-[#FF4D00] text-[#000] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#ff6a33] transition-colors"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+                        <path d="M3 9H15M15 9L10 4M15 9L10 14" stroke="currentColor" strokeWidth="2" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
 
-                {/* Progress bar */}
-                <div className="w-full h-[2px] bg-border mb-4">
-                  <div
-                    className="h-full bg-foreground transition-all duration-500"
-                    style={{ width: `${dp.similarity}%` }}
-                  />
+                {error && (
+                  <p className="mt-4 font-mono text-[11px] text-red-400 text-center">{error}</p>
+                )}
+              </motion.div>
+
+              {/* Local Archive */}
+              {archive.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.9 }}
+                  className="w-full max-w-2xl px-4 mt-12"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-mono text-[10px] tracking-[0.2em] text-[#666] flex items-center gap-2">
+                      <span className="w-4 h-[1px] bg-[#333]" />
+                      LOCAL ARCHIVE
+                      <span className="text-[#444]">({archive.length})</span>
+                    </h3>
+                    <button 
+                      onClick={clearArchive}
+                      className="font-mono text-[9px] text-[#444] hover:text-red-400 transition-colors"
+                    >
+                      [CLEAR]
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {archive.slice(0, 5).map((entry) => (
+                      <button
+                        key={entry.id}
+                        onClick={() => loadFromArchive(entry)}
+                        className="w-full text-left bg-[#0a0a0a]/50 border border-[#1a1a1a] p-3 hover:border-[#FF4D00]/30 transition-colors group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="font-mono text-[11px] text-[#888] truncate flex-1 mr-4 group-hover:text-[#e5e5e5] transition-colors">
+                            {entry.idea}
+                          </p>
+                          <span className="font-mono text-[9px] text-[#444] shrink-0">
+                            {new Date(entry.timestamp).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="font-mono text-[9px] text-[#FF4D00]/70 mt-1 truncate">
+                          {entry.results.verdict.title}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+
+          {/* LOADING STATE */}
+          {phase === "loading" && (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="min-h-screen flex flex-col items-center justify-center px-4 md:px-6"
+            >
+              <div className="w-full max-w-lg">
+                <div className="mb-8">
+                  <div className="w-full h-[2px] bg-[#1a1a1a] overflow-hidden">
+                    <motion.div
+                      className="h-full bg-[#FF4D00]"
+                      initial={{ width: "0%" }}
+                      animate={{ width: "100%" }}
+                      transition={{ duration: 5, ease: "linear" }}
+                    />
+                  </div>
                 </div>
 
-                {/* Tags */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <span className={`font-mono text-[10px] tracking-widest border px-2 py-1 ${statusStyles[dp.status]}`}>
-                    {dp.status.toUpperCase()}
-                  </span>
-                  {dp.tags.map((t, j) => (
-                    <span key={j} className="font-mono text-[10px] tracking-widest border border-border text-muted-foreground px-2 py-1">
-                      {t.toUpperCase()}
-                    </span>
+                <div className="font-mono text-[11px] md:text-[12px] text-[#666] space-y-2">
+                  {loadingLogs.slice(0, logIndex + 1).map((log, i) => (
+                    <motion.p
+                      key={i}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: i === logIndex ? 1 : 0.4, x: 0 }}
+                      className={i === logIndex ? "text-[#FF4D00]" : ""}
+                    >
+                      {log}
+                      {i === logIndex && <span className="animate-pulse">_</span>}
+                    </motion.p>
                   ))}
                 </div>
+              </div>
+            </motion.div>
+          )}
 
-                <p className="font-mono text-sm text-muted-foreground leading-relaxed">
-                  {dp.journey}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </section>
+          {/* RESULTS STATE */}
+          {phase === "results" && results && (
+            <motion.div
+              key="results"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="min-h-screen px-4 md:px-6 pt-24 pb-20"
+            >
+              <div className="max-w-4xl mx-auto space-y-8">
+                
+                {/* A. DOPPELGANGERS FOUND */}
+                <motion.section
+                  variants={sectionVariants}
+                  initial="hidden"
+                  animate="visible"
+                  transition={{ delay: 0.1 }}
+                >
+                  <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
+                    <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
+                    A. DOPPELGANGERS FOUND
+                    <span className="text-[#666]">({results.doppelgangers.length})</span>
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                    {results.doppelgangers.map((dp, i) => {
+                      const config = statusConfig[dp.status] || statusConfig.DEAD
+                      return (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.2 + i * 0.1 }}
+                          className="bg-[#0a0a0a] border border-[#FF4D00]/20 p-4 md:p-5 hover:border-[#FF4D00]/50 transition-colors"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-sans font-bold text-base md:text-lg text-[#e5e5e5] truncate">{dp.name}</h4>
+                              <p className="font-mono text-[9px] md:text-[10px] text-[#666]">EST. {dp.founded}</p>
+                            </div>
+                            <div className="text-right ml-3">
+                              <p className="font-mono text-lg md:text-xl font-bold text-[#FF4D00]">{dp.similarity}%</p>
+                              <p className="font-mono text-[8px] md:text-[9px] text-[#666]">MATCH</p>
+                            </div>
+                          </div>
+                          <div className="w-full h-[2px] bg-[#1a1a1a] mb-3">
+                            <div className="h-full bg-[#FF4D00]" style={{ width: `${dp.similarity}%` }} />
+                          </div>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className={`inline-block font-mono text-[8px] md:text-[9px] tracking-wider border px-2 py-1 ${config.color} ${config.border} ${config.bg}`}>
+                              {dp.status}
+                            </span>
+                            <a 
+                              href={`https://www.google.com/search?q=${encodeURIComponent(dp.name + " startup")}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-mono text-[8px] text-[#444] hover:text-[#00d4ff] transition-colors flex items-center gap-1"
+                              title="View source"
+                            >
+                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M6 3H3v10h10v-3M9 3h4v4M14 2L7 9" />
+                              </svg>
+                              SRC
+                            </a>
+                          </div>
+                          <p className="font-mono text-[10px] md:text-[11px] text-[#888] leading-relaxed">{dp.reason}</p>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                </motion.section>
 
-        {/* Differences Table */}
-        <section className="mb-20">
-          <SectionLabel index="02">THEM VS. YOU</SectionLabel>
-          <div className="border border-border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-secondary">
-                  <th className="font-mono text-[10px] tracking-widest text-muted-foreground font-normal text-left px-4 py-3 border-b border-border">DIMENSION</th>
-                  <th className="font-mono text-[10px] tracking-widest text-muted-foreground font-normal text-left px-4 py-3 border-b border-border">THEY DID</th>
-                  <th className="font-mono text-[10px] tracking-widest text-muted-foreground font-normal text-right px-4 py-3 border-b border-border">YOU COULD</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.differences.map((d, i) => (
-                  <tr key={i} className="border-b border-border last:border-0 hover:bg-secondary transition-colors">
-                    <td className="font-mono text-[10px] tracking-widest text-muted-foreground px-4 py-4">{d.dimension.toUpperCase()}</td>
-                    <td className="font-mono text-sm text-muted-foreground px-4 py-4">{d.they_did}</td>
-                    <td className="font-mono text-sm text-foreground px-4 py-4 text-right">{d.you_could}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                {/* B. THE AUTOPSY */}
+                <motion.section
+                  variants={sectionVariants}
+                  initial="hidden"
+                  animate="visible"
+                  transition={{ delay: 0.4 }}
+                >
+                  <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
+                    <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
+                    B. THE AUTOPSY
+                    <span className="text-[#666]">(Problems &amp; Feedback)</span>
+                  </h3>
+                  <div className="bg-[#0a0a0a] border border-[#FF4D00]/20 p-4 md:p-6 space-y-3">
+                    {results.autopsy.map((item, i) => (
+                      <motion.div 
+                        key={i} 
+                        className="flex gap-3"
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.5 + i * 0.1 }}
+                      >
+                        <span className="font-mono text-[9px] md:text-[10px] text-red-500 shrink-0">[ERR_{String(i + 1).padStart(2, "0")}]</span>
+                        <p className="font-mono text-[11px] md:text-[12px] text-[#888] leading-relaxed">{item}</p>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.section>
 
-        {/* Fatal Mistakes */}
-        <section className="mb-20">
-          <SectionLabel index="03">FATAL MISTAKES TO AVOID</SectionLabel>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {results.fatal_mistakes.map((m, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="bg-accent/5 border border-accent/20 p-5"
-              >
-                <span className="font-mono text-accent text-lg font-bold">X</span>
-                <p className="font-mono text-sm text-muted-foreground mt-2 leading-relaxed">{m}</p>
-              </motion.div>
-            ))}
-          </div>
-        </section>
+                {/* C. OPPORTUNITY MAPPING */}
+                <motion.section
+                  variants={sectionVariants}
+                  initial="hidden"
+                  animate="visible"
+                  transition={{ delay: 0.6 }}
+                >
+                  <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
+                    <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
+                    C. OPPORTUNITY MAPPING
+                  </h3>
+                  <div className="bg-[#0a0a0a] border border-[#FF4D00]/20 p-4 md:p-6 space-y-3">
+                    {results.opportunities.map((item, i) => (
+                      <motion.div 
+                        key={i} 
+                        className="flex gap-3"
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.7 + i * 0.1 }}
+                      >
+                        <span className="font-mono text-[9px] md:text-[10px] text-green-400 shrink-0">[OPP_{String(i + 1).padStart(2, "0")}]</span>
+                        <p className="font-mono text-[11px] md:text-[12px] text-[#888] leading-relaxed">{item}</p>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.section>
 
-        {/* Winning Moves */}
-        <section className="mb-20">
-          <SectionLabel index="04">YOUR WINNING MOVES</SectionLabel>
-          <div className="space-y-3">
-            {results.winning_moves.map((m, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="flex gap-6 items-start bg-secondary border border-border p-5 hover:border-foreground transition-colors"
-              >
-                <span className="font-mono text-4xl font-bold text-muted-foreground shrink-0">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <p className="font-mono text-sm text-foreground leading-relaxed pt-2">{m}</p>
-              </motion.div>
-            ))}
-          </div>
-        </section>
+                {/* D. FINAL VERDICT */}
+                <motion.section
+                  variants={sectionVariants}
+                  initial="hidden"
+                  animate="visible"
+                  transition={{ delay: 0.8 }}
+                >
+                  <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
+                    <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
+                    D. FINAL VERDICT
+                  </h3>
+                  <div className="border-2 border-[#FF4D00] p-8 md:p-12 text-center relative overflow-hidden bg-[#0a0a0a]">
+                    <div className="absolute inset-0 bg-gradient-to-b from-[#FF4D00]/20 to-transparent" />
+                    <motion.h2 
+                      className="relative font-sans font-black text-3xl md:text-5xl lg:text-6xl tracking-tight mb-6 text-[#FF4D00]"
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.5, duration: 0.4 }}
+                    >
+                      {results.verdict.title}
+                    </motion.h2>
+                    <motion.p 
+                      className="relative font-mono text-[11px] md:text-[13px] text-[#888] max-w-2xl mx-auto leading-relaxed"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 1.2 }}
+                    >
+                      {results.verdict.summary}
+                    </motion.p>
+                  </div>
+                </motion.section>
 
-        {/* Verdict */}
-        <section>
-          <SectionLabel index="05">FINAL VERDICT</SectionLabel>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="border border-foreground p-8 md:p-12 text-center"
-          >
-            <h3 className="font-sans font-black text-3xl md:text-5xl tracking-tight mb-6 leading-tight">
-              {results.verdict.headline}
-            </h3>
-            <p className="font-mono text-sm text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-              {results.verdict.summary}
-            </p>
-          </motion.div>
-        </section>
+                {/* Action Buttons */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.4 }}
+                  className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8"
+                >
+                  <button
+                    onClick={reset}
+                    className="w-full sm:w-auto font-mono text-[10px] md:text-[11px] tracking-[0.15em] border border-[#333] px-8 py-3 hover:border-[#FF4D00] hover:text-[#FF4D00] transition-all"
+                  >
+                    [NEW SEARCH]
+                  </button>
+                  <button
+                    onClick={reIterate}
+                    className="w-full sm:w-auto font-mono text-[10px] md:text-[11px] tracking-[0.15em] bg-[#FF4D00] text-[#000] px-8 py-3 hover:bg-[#ff6a33] transition-all font-bold"
+                  >
+                    [RE-ITERATE IDEA]
+                  </button>
+                </motion.div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-border py-6 px-6">
-        <p className="font-mono text-[10px] tracking-widest text-muted-foreground text-center">
-          DPLGNGR V.01 — STARTUP INTELLIGENCE ENGINE
-        </p>
-      </footer>
-    </div>
-  )
-}
-
-function SectionLabel({ children, index }: { children: React.ReactNode; index: string }) {
-  return (
-    <div className="flex items-center gap-4 mb-6">
-      <span className="font-mono text-[10px] tracking-widest text-muted-foreground">{index}</span>
-      <div className="flex-1 h-px bg-border" />
-      <span className="font-mono text-[10px] tracking-widest text-muted-foreground">{children}</span>
     </div>
   )
 }
