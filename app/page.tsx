@@ -1,6 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import gsap from "gsap"
+import dynamic from "next/dynamic"
+
+const Globe3D = dynamic(() => import("@/components/globe-3d").then(mod => mod.Globe3D), { 
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-black" />
+})
 
 // Types
 interface Doppelganger {
@@ -29,33 +37,59 @@ interface Results {
   }
 }
 
-// Status styles
 const statusStyles: Record<string, string> = {
-  alive:    "border-teal-500/40 text-teal-400",
-  dead:     "border-rose-500/40 text-rose-400",
-  acquired: "border-amber-500/40 text-amber-400",
-  pivot:    "border-purple-500/40 text-purple-400",
+  alive: "border-white/40 text-white",
+  dead: "border-accent/40 text-accent",
+  acquired: "border-white/40 text-white",
+  pivot: "border-white/20 text-white/60",
 }
 
-// Component
+const loadingPhrases = [
+  "SCANNING GLOBAL DATABASES",
+  "CROSS-REFERENCING PATTERNS",
+  "ANALYZING MARKET SIGNALS",
+  "DECODING STARTUP DNA",
+  "MAPPING TRAJECTORIES",
+  "COMPUTING SIMILARITIES",
+]
+
 export default function DoppelgangerApp() {
   const [idea, setIdea] = useState("")
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [loadingPhrase, setLoadingPhrase] = useState(0)
   const [error, setError] = useState("")
   const [results, setResults] = useState<Results | null>(null)
+  const titleRef = useRef<HTMLHeadingElement>(null)
 
-  // Groq call
+  useEffect(() => {
+    if (loading) {
+      const interval = setInterval(() => {
+        setLoadingPhrase(p => (p + 1) % loadingPhrases.length)
+      }, 800)
+      return () => clearInterval(interval)
+    }
+  }, [loading])
+
+  useEffect(() => {
+    if (titleRef.current) {
+      gsap.fromTo(
+        titleRef.current.querySelectorAll("span"),
+        { y: 100, opacity: 0 },
+        { y: 0, opacity: 1, stagger: 0.05, duration: 0.8, ease: "power4.out" }
+      )
+    }
+  }, [])
+
   async function findDoppelganger() {
     if (!idea.trim()) return
     setLoading(true)
     setError("")
     setProgress(0)
 
-    // Fake progress ticker
     const ticker = setInterval(() => {
-      setProgress((p) => Math.min(p + Math.random() * 9, 88))
-    }, 300)
+      setProgress(p => Math.min(p + Math.random() * 8, 90))
+    }, 200)
 
     const prompt = `You are a world-class startup analyst with deep knowledge of the global startup ecosystem.
 
@@ -132,8 +166,7 @@ Return ONLY a valid JSON object. No markdown, no backticks, no extra text.
           messages: [
             {
               role: "system",
-              content:
-                "You are a startup analyst. Always respond with ONLY valid JSON, no markdown formatting, no backticks, no extra text.",
+              content: "You are a startup analyst. Always respond with ONLY valid JSON, no markdown formatting, no backticks, no extra text.",
             },
             { role: "user", content: prompt },
           ],
@@ -158,7 +191,7 @@ Return ONLY a valid JSON object. No markdown, no backticks, no extra text.
         setResults(parsed)
         setLoading(false)
         setProgress(0)
-      }, 400)
+      }, 500)
     } catch (e: unknown) {
       clearInterval(ticker)
       setLoading(false)
@@ -173,186 +206,238 @@ Return ONLY a valid JSON object. No markdown, no backticks, no extra text.
     setError("")
   }
 
-  // HERO
+  // HERO VIEW
   if (!results) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] text-white font-mono flex flex-col">
-        {/* Nav */}
-        <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-rose-500 flex items-center justify-center text-base font-bold">
-              D
-            </div>
-            <span className="font-sans font-black text-lg tracking-tight">Doppelganger</span>
+      <div className="min-h-screen bg-background text-foreground flex flex-col">
+        {/* Header */}
+        <header className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 py-4 bg-background/80 backdrop-blur-sm border-b border-border">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs tracking-widest">DPLGNGR</span>
           </div>
-          <span className="text-[10px] tracking-widest text-white/40 border border-white/15 px-2.5 py-1 rounded">
-            BETA
+          <span className="font-mono text-[10px] tracking-widest text-muted-foreground border border-border px-2 py-1">
+            V.01
           </span>
-        </nav>
+        </header>
 
-        {/* Stars */}
-        <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          {Array.from({ length: 60 }).map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-px h-px rounded-full bg-white/40 animate-pulse"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 4}s`,
-                animationDuration: `${2 + Math.random() * 3}s`,
-              }}
-            />
-          ))}
-        </div>
+        {/* Main content */}
+        <main className="relative flex-1 flex flex-col items-center justify-center px-6 pt-24 pb-16">
+          {/* 3D Globe Background */}
+          <div className="absolute inset-0 opacity-30">
+            <Globe3D />
+          </div>
 
-        {/* Hero */}
-        <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 pt-24 pb-16 text-center">
-          <p className="text-[11px] tracking-[0.25em] uppercase text-white/30 mb-5">
-            startup intelligence engine
-          </p>
-          <h1 className="font-sans font-black text-5xl sm:text-6xl md:text-7xl leading-[1.05] mb-5">
-            <span className="text-purple-400">Find</span>{" "}
-            <span>the</span>{" "}
-            <span className="text-rose-400">startup</span>{" "}
-            <span>that</span>{" "}
-            <span className="text-teal-400">walked</span>
-            <br />
-            <span>your</span>{" "}
-            <span>path</span>{" "}
-            <span>before</span>{" "}
-            <span className="text-amber-400">you.</span>
-          </h1>
-          <p className="text-sm text-white/50 mb-12 tracking-wide">
-            Learn from their journey. Avoid their mistakes.
-          </p>
-
-          <div className="w-full max-w-2xl">
-            <textarea
-              className="w-full bg-white/5 border border-white/15 rounded-lg px-5 py-4 text-sm text-white placeholder-white/25 font-mono resize-none focus:outline-none focus:border-purple-500/50 transition-colors min-h-[100px] leading-relaxed italic"
-              placeholder="Describe your startup idea... e.g. an app where freelancers compete in real-time challenges to get hired"
-              value={idea}
-              onChange={(e) => setIdea(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) findDoppelganger()
-              }}
-            />
-
-            {error && (
-              <div className="mt-3 px-4 py-3 bg-rose-500/10 border border-rose-500/25 rounded-lg text-rose-400 text-xs">
-                {error}
-              </div>
-            )}
-
-            <button
-              onClick={findDoppelganger}
-              disabled={loading || !idea.trim()}
-              className="mt-4 w-full py-4 font-sans font-bold text-base tracking-wide rounded-lg bg-gradient-to-r from-purple-600 to-rose-500 text-white hover:opacity-85 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          {/* Content */}
+          <div className="relative z-10 w-full max-w-4xl text-center">
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground mb-8"
             >
-              {loading ? "Scanning the multiverse..." : "Find My Doppelganger"}
-            </button>
+              STARTUP INTELLIGENCE ENGINE
+            </motion.p>
 
-            {loading && (
-              <div className="mt-5">
-                <p className="text-xs text-teal-400 tracking-widest animate-pulse mb-3">
-                  scanning the startup universe...
-                </p>
-                <div className="w-full h-0.5 bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-purple-500 via-rose-500 to-teal-400 rounded-full transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
+            <h1 
+              ref={titleRef}
+              className="font-sans font-black text-[12vw] md:text-[10vw] lg:text-[8vw] leading-[0.85] tracking-tighter mb-8 overflow-hidden"
+            >
+              <span className="inline-block">FIND</span>{" "}
+              <span className="inline-block">YOUR</span>
+              <br />
+              <span className="inline-block text-accent glitch-text" data-text="DOPPEL">DOPPEL</span>
+              <span className="inline-block">GANGER</span>
+            </h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="font-mono text-sm text-muted-foreground mb-12 max-w-xl mx-auto"
+            >
+              Discover the startup that walked your path before you.
+              <br />
+              Learn from their journey. Avoid their mistakes.
+            </motion.p>
+
+            {/* Input */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+              className="w-full max-w-2xl mx-auto"
+            >
+              <div className="relative">
+                <textarea
+                  className="w-full bg-secondary border border-border px-6 py-5 text-sm font-mono text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-foreground transition-colors min-h-[120px]"
+                  placeholder="Describe your startup idea..."
+                  value={idea}
+                  onChange={(e) => setIdea(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) findDoppelganger()
+                  }}
+                />
+                <span className="absolute bottom-3 right-3 font-mono text-[10px] text-muted-foreground">
+                  CMD + ENTER
+                </span>
               </div>
-            )}
+
+              {error && (
+                <div className="mt-4 px-4 py-3 bg-accent/10 border border-accent/30 text-accent text-xs font-mono">
+                  {error}
+                </div>
+              )}
+
+              <button
+                onClick={findDoppelganger}
+                disabled={loading || !idea.trim()}
+                className="mt-4 w-full py-5 font-mono text-sm tracking-widest bg-foreground text-background hover:bg-foreground/90 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                {loading ? loadingPhrases[loadingPhrase] : "FIND MY DOPPELGANGER"}
+              </button>
+
+              <AnimatePresence>
+                {loading && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-6"
+                  >
+                    <div className="w-full h-[2px] bg-border overflow-hidden">
+                      <motion.div
+                        className="h-full bg-foreground"
+                        style={{ width: `${progress}%` }}
+                        transition={{ duration: 0.2 }}
+                      />
+                    </div>
+                    <p className="mt-3 font-mono text-[10px] tracking-widest text-muted-foreground text-center">
+                      {Math.round(progress)}% COMPLETE
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </div>
+
+          {/* Marquee */}
+          <div className="absolute bottom-0 left-0 right-0 border-t border-border py-3 overflow-hidden">
+            <div className="marquee whitespace-nowrap">
+              <span className="font-mono text-[10px] tracking-widest text-muted-foreground">
+                {Array(10).fill("STARTUP INTELLIGENCE • PATTERN RECOGNITION • COMPETITIVE ANALYSIS • MARKET MAPPING • ").join("")}
+              </span>
+            </div>
           </div>
         </main>
       </div>
     )
   }
 
-  // RESULTS
+  // RESULTS VIEW
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white font-mono">
-      {/* Nav */}
-      <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-rose-500 flex items-center justify-center text-base font-bold">
-            D
-          </div>
-          <span className="font-sans font-black text-lg tracking-tight">Doppelganger</span>
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Header */}
+      <header className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 py-4 bg-background/80 backdrop-blur-sm border-b border-border">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-xs tracking-widest">DPLGNGR</span>
         </div>
         <button
           onClick={reset}
-          className="text-[11px] tracking-widest text-white/40 border border-white/15 px-3 py-1.5 rounded hover:border-purple-500/50 hover:text-purple-400 transition-colors"
+          className="font-mono text-[10px] tracking-widest text-muted-foreground border border-border px-3 py-1.5 hover:border-foreground hover:text-foreground transition-colors"
         >
-          new search
+          NEW SEARCH
         </button>
-      </nav>
+      </header>
 
-      <main className="max-w-4xl mx-auto px-6 pt-28 pb-24 space-y-16">
+      <main className="max-w-5xl mx-auto px-6 pt-28 pb-24">
+        {/* Results Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-16"
+        >
+          <p className="font-mono text-[10px] tracking-widest text-muted-foreground mb-4">
+            ANALYSIS COMPLETE
+          </p>
+          <h2 className="font-sans font-black text-4xl md:text-6xl tracking-tight leading-none">
+            YOUR STARTUP
+            <br />
+            <span className="text-accent">DOPPELGANGERS</span>
+          </h2>
+        </motion.div>
 
         {/* Doppelgangers */}
-        <section>
-          <SectionLabel>known doppelgangers</SectionLabel>
+        <section className="mb-20">
+          <SectionLabel index="01">KNOWN DOPPELGANGERS</SectionLabel>
           <div className="space-y-4">
             {results.doppelgangers.map((dp, i) => (
-              <div
+              <motion.div
                 key={i}
-                className="bg-white/[0.03] border border-white/10 rounded-xl p-6 relative overflow-hidden"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className="group bg-secondary border border-border p-6 hover:border-foreground transition-colors"
               >
-                <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-purple-500 via-rose-500 to-teal-400 opacity-60" />
                 <div className="flex items-start justify-between gap-4 mb-4">
-                  <span className="font-sans font-black text-2xl bg-gradient-to-r from-purple-400 via-rose-400 to-teal-400 bg-clip-text text-transparent">
-                    {dp.name}
-                  </span>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <span className="text-[11px] text-white/30">{dp.founded}</span>
-                    <span className="text-[11px] font-bold text-teal-400">{dp.similarity}% match</span>
+                  <div>
+                    <h3 className="font-sans font-black text-2xl md:text-3xl tracking-tight group-hover:text-accent transition-colors">
+                      {dp.name}
+                    </h3>
+                    <p className="font-mono text-[10px] tracking-widest text-muted-foreground mt-1">
+                      EST. {dp.founded}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-mono text-3xl font-bold">{dp.similarity}%</p>
+                    <p className="font-mono text-[10px] tracking-widest text-muted-foreground">MATCH</p>
                   </div>
                 </div>
-                {/* Similarity bar */}
-                <div className="w-full h-[3px] bg-white/10 rounded-full mb-3 overflow-hidden">
+
+                {/* Progress bar */}
+                <div className="w-full h-[2px] bg-border mb-4">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-purple-500 via-rose-500 to-teal-400"
+                    className="h-full bg-foreground transition-all duration-500"
                     style={{ width: `${dp.similarity}%` }}
                   />
                 </div>
+
                 {/* Tags */}
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  <span className={`text-[10px] border px-2.5 py-0.5 rounded ${statusStyles[dp.status] ?? statusStyles.alive}`}>
-                    {dp.status}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <span className={`font-mono text-[10px] tracking-widest border px-2 py-1 ${statusStyles[dp.status]}`}>
+                    {dp.status.toUpperCase()}
                   </span>
                   {dp.tags.map((t, j) => (
-                    <span key={j} className="text-[10px] border border-white/10 text-white/40 px-2.5 py-0.5 rounded">
-                      {t}
+                    <span key={j} className="font-mono text-[10px] tracking-widest border border-border text-muted-foreground px-2 py-1">
+                      {t.toUpperCase()}
                     </span>
                   ))}
                 </div>
-                <p className="text-sm text-white/55 leading-relaxed">{dp.journey}</p>
-              </div>
+
+                <p className="font-mono text-sm text-muted-foreground leading-relaxed">
+                  {dp.journey}
+                </p>
+              </motion.div>
             ))}
           </div>
         </section>
 
-        {/* Differences */}
-        <section>
-          <SectionLabel>them vs. you</SectionLabel>
-          <div className="overflow-x-auto rounded-xl border border-white/10">
-            <table className="w-full text-sm border-collapse">
+        {/* Differences Table */}
+        <section className="mb-20">
+          <SectionLabel index="02">THEM VS. YOU</SectionLabel>
+          <div className="border border-border overflow-hidden">
+            <table className="w-full text-sm">
               <thead>
-                <tr className="bg-white/[0.03]">
-                  <th className="text-[10px] tracking-widest uppercase text-white/30 font-normal text-left px-4 py-3 border-b border-white/10">dimension</th>
-                  <th className="text-[10px] tracking-widest uppercase text-white/30 font-normal text-left px-4 py-3 border-b border-white/10">they did</th>
-                  <th className="text-[10px] tracking-widest uppercase text-white/30 font-normal text-right px-4 py-3 border-b border-white/10">you could</th>
+                <tr className="bg-secondary">
+                  <th className="font-mono text-[10px] tracking-widest text-muted-foreground font-normal text-left px-4 py-3 border-b border-border">DIMENSION</th>
+                  <th className="font-mono text-[10px] tracking-widest text-muted-foreground font-normal text-left px-4 py-3 border-b border-border">THEY DID</th>
+                  <th className="font-mono text-[10px] tracking-widest text-muted-foreground font-normal text-right px-4 py-3 border-b border-border">YOU COULD</th>
                 </tr>
               </thead>
               <tbody>
                 {results.differences.map((d, i) => (
-                  <tr key={i} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-3 text-[11px] tracking-wide text-white/25 uppercase">{d.dimension}</td>
-                    <td className="px-4 py-3 text-white/50 leading-relaxed">{d.they_did}</td>
-                    <td className="px-4 py-3 text-teal-400 leading-relaxed text-right">{d.you_could}</td>
+                  <tr key={i} className="border-b border-border last:border-0 hover:bg-secondary transition-colors">
+                    <td className="font-mono text-[10px] tracking-widest text-muted-foreground px-4 py-4">{d.dimension.toUpperCase()}</td>
+                    <td className="font-mono text-sm text-muted-foreground px-4 py-4">{d.they_did}</td>
+                    <td className="font-mono text-sm text-foreground px-4 py-4 text-right">{d.you_could}</td>
                   </tr>
                 ))}
               </tbody>
@@ -360,58 +445,80 @@ Return ONLY a valid JSON object. No markdown, no backticks, no extra text.
           </div>
         </section>
 
-        {/* Fatal mistakes */}
-        <section>
-          <SectionLabel>fatal mistakes to avoid</SectionLabel>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Fatal Mistakes */}
+        <section className="mb-20">
+          <SectionLabel index="03">FATAL MISTAKES TO AVOID</SectionLabel>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {results.fatal_mistakes.map((m, i) => (
-              <div key={i} className="bg-rose-500/5 border border-rose-500/15 rounded-xl p-4">
-                <div className="text-rose-400 text-sm mb-2">X</div>
-                <p className="text-sm text-white/55 leading-relaxed">{m}</p>
-              </div>
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className="bg-accent/5 border border-accent/20 p-5"
+              >
+                <span className="font-mono text-accent text-lg font-bold">X</span>
+                <p className="font-mono text-sm text-muted-foreground mt-2 leading-relaxed">{m}</p>
+              </motion.div>
             ))}
           </div>
         </section>
 
-        {/* Winning moves */}
-        <section>
-          <SectionLabel>your winning moves</SectionLabel>
-          <ul className="space-y-3">
+        {/* Winning Moves */}
+        <section className="mb-20">
+          <SectionLabel index="04">YOUR WINNING MOVES</SectionLabel>
+          <div className="space-y-3">
             {results.winning_moves.map((m, i) => (
-              <li key={i} className="grid grid-cols-[48px_1fr] gap-4 items-start bg-white/[0.03] border border-white/10 rounded-xl px-5 py-4 hover:border-white/15 transition-colors">
-                <span className="font-sans font-black text-3xl bg-gradient-to-b from-purple-400 to-rose-500 bg-clip-text text-transparent leading-none pt-0.5">
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className="flex gap-6 items-start bg-secondary border border-border p-5 hover:border-foreground transition-colors"
+              >
+                <span className="font-mono text-4xl font-bold text-muted-foreground shrink-0">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <span className="text-sm text-white leading-relaxed">{m}</span>
-              </li>
+                <p className="font-mono text-sm text-foreground leading-relaxed pt-2">{m}</p>
+              </motion.div>
             ))}
-          </ul>
+          </div>
         </section>
 
         {/* Verdict */}
         <section>
-          <div className="relative bg-white/[0.03] border border-white/12 rounded-2xl p-8 text-center overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.07)_0%,transparent_70%)]" />
-            <p className="text-[10px] tracking-[0.25em] uppercase text-white/30 mb-4">final verdict</p>
-            <p className="relative font-sans font-black text-2xl sm:text-3xl bg-gradient-to-r from-purple-400 via-rose-400 to-teal-400 bg-clip-text text-transparent leading-snug mb-4">
+          <SectionLabel index="05">FINAL VERDICT</SectionLabel>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="border border-foreground p-8 md:p-12 text-center"
+          >
+            <h3 className="font-sans font-black text-3xl md:text-5xl tracking-tight mb-6 leading-tight">
               {results.verdict.headline}
-            </p>
-            <p className="relative text-sm text-white/50 leading-relaxed max-w-xl mx-auto">
+            </h3>
+            <p className="font-mono text-sm text-muted-foreground leading-relaxed max-w-2xl mx-auto">
               {results.verdict.summary}
             </p>
-          </div>
+          </motion.div>
         </section>
-
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-border py-6 px-6">
+        <p className="font-mono text-[10px] tracking-widest text-muted-foreground text-center">
+          DPLGNGR V.01 — STARTUP INTELLIGENCE ENGINE
+        </p>
+      </footer>
     </div>
   )
 }
 
-// Small helpers
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children, index }: { children: React.ReactNode; index: string }) {
   return (
-    <p className="text-[10px] tracking-[0.2em] uppercase text-white/25 border-b border-white/10 pb-2 mb-5">
-      {children}
-    </p>
+    <div className="flex items-center gap-4 mb-6">
+      <span className="font-mono text-[10px] tracking-widest text-muted-foreground">{index}</span>
+      <div className="flex-1 h-px bg-border" />
+      <span className="font-mono text-[10px] tracking-widest text-muted-foreground">{children}</span>
+    </div>
   )
 }
