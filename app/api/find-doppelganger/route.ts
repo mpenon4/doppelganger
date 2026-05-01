@@ -5,7 +5,7 @@ import { z } from 'zod'
 export const maxDuration = 60
 
 const groq = createGroq({
-  apiKey: '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',
+  apiKey: process.env.GROQ_API_KEY,
 })
 
 const doppelgangerSchema = z.object({
