@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { InteractiveCanvas } from "@/components/interactive-canvas"
 import { HUDOverlay } from "@/components/hud-overlay"
 import { ScanlineText, ScanlineLogo } from "@/components/scanline-text"
+import { SystemLog } from "@/components/system-log"
 
 // Types
 interface Doppelganger {
@@ -240,13 +241,17 @@ REQUIREMENTS:
       {/* HUD Overlay */}
       <HUDOverlay />
 
+      {/* System Log - MCP Transparency */}
+      <SystemLog isActive={phase !== "idle"} phase={phase} />
+
       {/* Minimal Header - Logo Only */}
-      <header className="fixed top-0 inset-x-0 z-50 flex items-center justify-center px-4 md:px-8 py-5 bg-[#000]/80 backdrop-blur-sm">
+      <header className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 md:px-8 py-4 bg-[#000]/90 backdrop-blur-sm border-b border-[#1a1a1a]">
         <ScanlineLogo 
           text="DOPPELGANGER" 
-          className="font-mono text-sm md:text-base tracking-[0.2em] font-bold text-[#FF4D00]"
+          className="font-mono text-lg md:text-xl lg:text-2xl tracking-[0.25em] font-black text-[#FF4D00]"
           scanColor="#00d4ff"
         />
+        <span className="font-mono text-[8px] md:text-[9px] text-[#333] tracking-wider">v2.1.0</span>
       </header>
 
       {/* Main Content */}
@@ -496,9 +501,23 @@ REQUIREMENTS:
                           <div className="w-full h-[2px] bg-[#1a1a1a] mb-3">
                             <div className="h-full bg-[#FF4D00]" style={{ width: `${dp.similarity}%` }} />
                           </div>
-                          <span className={`inline-block font-mono text-[8px] md:text-[9px] tracking-wider border px-2 py-1 mb-3 ${config.color} ${config.border} ${config.bg}`}>
-                            {dp.status}
-                          </span>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className={`inline-block font-mono text-[8px] md:text-[9px] tracking-wider border px-2 py-1 ${config.color} ${config.border} ${config.bg}`}>
+                              {dp.status}
+                            </span>
+                            <a 
+                              href={`https://www.google.com/search?q=${encodeURIComponent(dp.name + " startup")}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-mono text-[8px] text-[#444] hover:text-[#00d4ff] transition-colors flex items-center gap-1"
+                              title="View source"
+                            >
+                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M6 3H3v10h10v-3M9 3h4v4M14 2L7 9" />
+                              </svg>
+                              SRC
+                            </a>
+                          </div>
                           <p className="font-mono text-[10px] md:text-[11px] text-[#888] leading-relaxed">{dp.reason}</p>
                         </motion.div>
                       )
