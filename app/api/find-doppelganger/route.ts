@@ -1,7 +1,12 @@
 import { generateText, Output } from 'ai'
+import { createGroq } from '@ai-sdk/groq'
 import { z } from 'zod'
 
 export const maxDuration = 60
+
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY,
+})
 
 const doppelgangerSchema = z.object({
   companyName: z.string().describe('The name of the matched company'),
@@ -39,7 +44,7 @@ export async function POST(request: Request) {
     }
 
     const { output } = await generateText({
-      model: 'anthropic/claude-sonnet-4-20250514',
+      model: groq('llama-3.3-70b-versatile'),
       output: Output.object({
         schema: doppelgangerSchema,
       }),
