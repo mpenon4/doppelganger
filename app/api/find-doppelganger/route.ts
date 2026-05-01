@@ -5,7 +5,7 @@ import { z } from 'zod'
 export const maxDuration = 60
 
 const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
+  apiKey: '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',
 })
 
 const doppelgangerSchema = z.object({
@@ -28,8 +28,6 @@ const doppelgangerSchema = z.object({
 })
 
 export async function POST(request: Request) {
-  console.log('[v0] GROQ_API_KEY exists:', !!process.env.GROQ_API_KEY)
-  
   try {
     const { description } = await request.json()
 
