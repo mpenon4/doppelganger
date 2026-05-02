@@ -25,7 +25,7 @@ export function HUDOverlay() {
   }, [])
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-10 overflow-hidden">
+    <div className="fixed inset-0 pointer-events-none z-10 overflow-hidden hidden md:block">
       {/* Top Left Corner */}
       <div className="absolute top-20 left-6">
         <div className="flex items-center gap-2 mb-2">

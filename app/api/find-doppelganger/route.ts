@@ -1,6 +1,6 @@
-import { generateText, Output } from 'ai'
+import { generateText, tool, stepCountIs } from 'ai'
 import { createGroq } from '@ai-sdk/groq'
-import { z } from 'zod'
+import { createMCPClient } from '@ai-sdk/mcp'
 
 export const maxDuration = 60
 
@@ -8,77 +8,236 @@ const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
 })
 
-const doppelgangerSchema = z.object({
-  companyName: z.string().describe('The name of the matched company'),
-  description: z.string().describe('A one-line description of what the company did'),
-  foundingYear: z.number().describe('The year the company was founded'),
-  timeline: z.array(
-    z.object({
-      month: z.string().describe('The time period, e.g., "Month 1", "Month 3", "Month 6", "Month 12", "Year 2"'),
-      title: z.string().describe('A short title for this milestone'),
-      description: z.string().describe('What happened at this stage'),
-      type: z.enum(['milestone', 'warning', 'failure', 'success']).describe('The nature of this event'),
-    })
-  ).describe('5-6 key events in the company timeline'),
-  outcome: z.enum(['alive', 'dead', 'acquired']).describe('The final outcome of the company'),
-  wrongMoves: z.array(z.string()).describe('2-3 brutal lessons about what they did wrong'),
-  recommendations: z.array(z.string()).describe('3 concrete actions the user should do differently'),
-  similarityScore: z.number().min(0).max(100).describe('How similar this company is to the described startup (0-100)'),
-  confidence: z.number().min(0).max(100).describe('How confident you are in this match (0-100)'),
-})
+// System prompt factory — supports EN/ES
+function getSystemPrompt(lang: 'en' | 'es') {
+  if (lang === 'es') {
+    return `Eres DOPPELGANGER, un oráculo de inteligencia de mercado hiper-crítico y táctico. Estás conectado a la web en tiempo real vía Tavily MCP.
+
+TU MISIÓN:
+Extraer la VERDAD absoluta sobre la viabilidad de la idea del usuario. Tu objetivo no es ser amable, es evitar que pierdan tiempo o dinero revelando los desafíos reales de distribución, la competencia invisible y los problemas de Unit Economics. Debes proporcionar palancas de crecimiento específicas y caminos de pivote.
+
+INSTRUCCIONES DE BÚSQUEDA Y ANÁLISIS OBLIGATORIAS:
+1. ENCUENTRA competidores reales, vivos o muertos. Nombres reales, no inventes.
+2. DESCUBRE por qué murieron o cómo sobreviven (distribución, CAC, retención, falta de PMF).
+3. EXTRAE tácticas que hicieron bien y que el usuario puede copiar.
+
+ESTRUCTURA OBLIGATORIA (JSON estricto):
+{
+  "marketEvaluation": "Resumen analítico duro (TAM, saturación, viabilidad de canales). Máximo 3 párrafos.",
+  "topMatches": [
+    {
+      "name": "Nombre Real de la Empresa",
+      "status": "ACTIVA o MUERTA o ADQUIRIDA",
+      "description": "Qué hacen/hacían y su modelo de ingresos.",
+      "whyTheyFailed": ["Razón crítica 1", "Razón crítica 2 (ej. CAC muy alto)"],
+      "whatTheyDidRight": ["Acerto táctico 1 (ej. Go-to-market vía B2B)", "Acerto 2"],
+      "unitEconomics": "Breve nota sobre si su modelo era sostenible o quemaban dinero para crecer.",
+      "keyLesson": "La lección definitiva para sobrevivir en este espacio."
+    }
+  ],
+  "radarAlternatives": [
+    {
+      "name": "Nombre de Competidor Tangencial",
+      "focus": "En qué nicho hiper-específico sobreviven."
+    }
+  ],
+  "verdict": {
+    "title": "TÍTULO DURO Y TÁCTICO",
+    "strategy": "Conclusión final. ¿Pivotar o continuar? ¿Cómo arreglar la distribución? 3-4 párrafos."
+  },
+  "pivotOptions": [
+    {
+      "title": "Nombre del Pivote 1 (ej: B2B Enterprise)",
+      "description": "Descripción corta de por qué este pivote tiene más sentido."
+    },
+    {
+      "title": "Nombre del Pivote 2 (ej: Nicho Vertical X)",
+      "description": "Por qué ignorar al mercado general y enfocarse aquí."
+    },
+    {
+      "title": "Nombre del Pivote 3",
+      "description": "Un enfoque totalmente radical o cambio de modelo de negocio."
+    }
+  ]
+}
+
+REGLAS ABSOLUTAS:
+- NO INVENTES NOMBRES. Usa Tavily.
+- SE CRUELMENTE TÁCTICO. Evita generalidades como 'buena interfaz'. Ve directo a Distribución y Modelo de Negocio.
+- El campo 'whyTheyFailed' aplica también para empresas activas (sus mayores fricciones).
+- EL FORMATO DEBE SER JSON PERFECTO. Todos los valores de texto DEBEN estar entre comillas dobles. Escapa las comillas internas con barra invertida (\").
+- **REGLA DE IDIOMA**: ABSOLUTAMENTE TODOS LOS TEXTOS DENTRO DEL JSON DEBEN ESTAR EN ESPAÑOL (SPANISH). SIN EXCEPCIONES.`
+  }
+
+  return `You are DOPPELGANGER, a hyper-critical, tactical market intelligence oracle. You are connected to the live web via Tavily MCP.
+
+YOUR MISSION:
+Extract the absolute TRUTH about the viability of the user's idea. Your goal is not to be polite, it is to save them time and money by revealing the real distribution challenges, invisible competition, and Unit Economics issues. You must provide specific growth levers and pivot paths.
+
+MANDATORY SEARCH AND ANALYSIS INSTRUCTIONS:
+1. FIND real competitors, dead or alive. Real names, do not invent.
+2. UNCOVER why they died or how they survive (distribution, CAC, retention, lack of PMF).
+3. EXTRACT tactics they did right that the user can leverage.
+
+MANDATORY STRUCTURE (Strict JSON):
+{
+  "marketEvaluation": "Hard analytical summary (TAM, saturation, channel viability). Max 3 paragraphs.",
+  "topMatches": [
+    {
+      "name": "Real Company Name",
+      "status": "ALIVE or DEAD or ACQUIRED",
+      "description": "What they do/did and their revenue model.",
+      "whyTheyFailed": ["Critical reason 1", "Critical reason 2 (e.g., CAC too high)"],
+      "whatTheyDidRight": ["Tactical win 1 (e.g., GTM via B2B partnerships)", "Win 2"],
+      "unitEconomics": "Brief note on whether their model was sustainable or just burning cash.",
+      "keyLesson": "The ultimate survival lesson in this space."
+    }
+  ],
+  "radarAlternatives": [
+    {
+      "name": "Tangential Competitor Name",
+      "focus": "The hyper-specific niche they survive in."
+    }
+  ],
+  "verdict": {
+    "title": "HARSH TACTICAL TITLE",
+    "strategy": "Final conclusion. Pivot or proceed? How to fix distribution? 3-4 paragraphs."
+  },
+  "pivotOptions": [
+    {
+      "title": "Pivot Name 1 (e.g., B2B Enterprise)",
+      "description": "Short description of why this pivot makes more sense."
+    },
+    {
+      "title": "Pivot Name 2 (e.g., Vertical Niche X)",
+      "description": "Why to ignore the general market and focus here."
+    },
+    {
+      "title": "Pivot Name 3",
+      "description": "A radical shift or business model change."
+    }
+  ]
+}
+
+ABSOLUTE RULES:
+- DO NOT INVENT NAMES. Use Tavily.
+- BE RUTHLESSLY TACTICAL. Avoid generic 'good UI' points. Go straight to Distribution and Business Model.
+- The 'whyTheyFailed' field applies to active companies too (their biggest frictions).
+- FORMAT MUST BE PERFECT JSON. All text values MUST be enclosed in double quotes. Escape any internal quotes with a backslash (\").
+- **LANGUAGE RULE**: ABSOLUTELY ALL TEXT INSIDE THE JSON MUST BE IN ENGLISH. NO EXCEPTIONS.`
+}
 
 export async function POST(request: Request) {
+  let mcpClient: Awaited<ReturnType<typeof createMCPClient>> | null = null
+
   try {
-    const { description } = await request.json()
+    const { description, lang = 'en' } = await request.json()
 
     if (!description || typeof description !== 'string') {
       return Response.json({ error: 'Description is required' }, { status: 400 })
     }
 
-    // Check for easter egg
-    if (description.toLowerCase().includes('my startup is dead')) {
+    if (description.toLowerCase().includes('my startup is dead') || description.toLowerCase().includes('mi startup está muerta')) {
       return Response.json({
         easterEgg: true,
-        message: "We know. That's why you're here.",
+        message: lang === 'es' ? "Lo sabemos. Por eso estás aquí." : "We know. That's why you're here.",
       })
     }
 
-    const { output } = await generateText({
+    let mcpTools: Record<string, any> = {}
+    const tavilyApiKey = process.env.TAVILY_API_KEY
+
+    if (tavilyApiKey) {
+      try {
+        mcpClient = await createMCPClient({
+          transport: {
+            type: 'sse',
+            url: `https://mcp.tavily.com/mcp/?tavilyApiKey=${tavilyApiKey}`,
+          },
+        })
+        mcpTools = await mcpClient.tools()
+        console.log('[MCP] Connected to Tavily MCP. Tools:', Object.keys(mcpTools))
+      } catch (mcpError) {
+        console.warn('[MCP] Failed to connect to Tavily MCP, falling back to LLM-only:', mcpError)
+      }
+    } else {
+      console.warn('[MCP] No TAVILY_API_KEY set, running in LLM-only mode')
+    }
+
+    const systemPrompt = getSystemPrompt(lang as 'en' | 'es')
+    
+    const searchInstruction = Object.keys(mcpTools).length > 0
+      ? `\n\nIMPORTANT: You have web search tools available. USE THEM to perform a deep, rigorous investigation about this idea BEFORE generating your response. Search for:
+1. "${description}" exact competitors and similar startups
+2. Specific distribution channels and unit economics challenges for "${description}"
+3. "${description}" startup post-mortems and specific reasons why they failed (distribution, CAC, retention, etc.)
+
+You must base your analysis on REAL data, REAL companies, and REAL sources. Do not hallucinate.`
+      : ''
+
+    const { text, steps } = await generateText({
       model: groq('llama-3.3-70b-versatile'),
-      output: Output.object({
-        schema: doppelgangerSchema,
-      }),
-      system: `You are Doppelganger, an AI that finds startup "twins" - companies that attempted similar ideas in the past.
-      
-Your job is to:
-1. Analyze the user's startup description
-2. Find real startups that attempted something similar (focus on failed or acquired startups for maximum learning value)
-3. Provide a detailed, BRUTALLY HONEST analysis of that company's journey
-
-Focus on finding:
-- Companies from Product Hunt, TechCrunch, Crunchbase
-- Failed startups in the same space
-- Acquired companies that pivoted or died
-- Historical attempts at similar problems
-
-Be specific with dates, events, and lessons. The user wants REAL insights, not generic advice.
-Make the wrongMoves section brutally honest - these are autopsy lessons.
-Make recommendations concrete and actionable.
-
-IMPORTANT: Find a REAL company if possible. If you can't find a perfect match, find the closest comparable company and explain why it's similar.`,
-      prompt: `Find the startup doppelganger for this idea: "${description}"
-      
-Search your knowledge for real companies that attempted something similar. Focus on ones that failed, pivoted dramatically, or were acquired under difficult circumstances - these provide the best lessons.
-
-Return detailed information about the matching company.`,
+      tools: mcpTools,
+      stopWhen: stepCountIs(6),
+      maxTokens: 6000,
+      temperature: 0.2,
+      system: systemPrompt,
+      prompt: `${lang === 'es' ? 'Analiza rigurosamente esta idea de startup' : 'Rigorously analyze this startup idea'}: "${description}"${searchInstruction}`,
     })
 
-    return Response.json(output)
-  } catch (error) {
+    const sources: Array<{ title: string; url: string }> = []
+    if (steps) {
+      for (const step of steps) {
+        if (step.toolResults) {
+          for (const result of step.toolResults) {
+            try {
+              const parsed = typeof result.result === 'string' ? JSON.parse(result.result) : result.result
+              if (parsed?.results) {
+                for (const r of parsed.results) {
+                  if (r.url && r.title) {
+                    sources.push({ title: r.title, url: r.url })
+                  }
+                }
+              }
+            } catch {
+              // skip
+            }
+          }
+        }
+      }
+    }
+
+    let raw = text || ''
+    raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
+    const match = raw.match(/\{[\s\S]*\}/)
+    if (!match) {
+      console.error('Raw LLM Output:', raw)
+      throw new Error('Invalid response format from LLM')
+    }
+
+    console.log('--- RAW LLM JSON ---')
+    console.log(match[0])
+    console.log('--------------------')
+
+    const parsed = JSON.parse(match[0])
+
+    return Response.json({
+      ...parsed,
+      sources: sources.slice(0, 10),
+      mcpConnected: Object.keys(mcpTools).length > 0,
+    })
+
+  } catch (error: any) {
     console.error('Error finding doppelganger:', error)
     return Response.json(
-      { error: 'Failed to find your doppelganger. Please try again.' },
+      { error: error?.message || 'Failed to analyze your idea. Please try again.' },
       { status: 500 }
     )
+  } finally {
+    if (mcpClient) {
+      try {
+        await mcpClient.close()
+      } catch {}
+    }
   }
 }
