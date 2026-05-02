@@ -64,7 +64,8 @@ ESTRUCTURA OBLIGATORIA (JSON estricto):
 REGLAS ABSOLUTAS:
 - NO INVENTES NOMBRES. Usa Tavily.
 - SE CRUELMENTE TÁCTICO. Evita generalidades como 'buena interfaz'. Ve directo a Distribución y Modelo de Negocio.
-- El campo 'whyTheyFailed' aplica también para empresas activas (sus mayores fricciones).`
+- El campo 'whyTheyFailed' aplica también para empresas activas (sus mayores fricciones).
+- EL FORMATO DEBE SER JSON PERFECTO. Todos los valores de texto DEBEN estar entre comillas dobles. Escapa las comillas internas con barra invertida (\").`
   }
 
   return `You are DOPPELGANGER, a hyper-critical, tactical market intelligence oracle. You are connected to the live web via Tavily MCP.
@@ -120,7 +121,8 @@ MANDATORY STRUCTURE (Strict JSON):
 ABSOLUTE RULES:
 - DO NOT INVENT NAMES. Use Tavily.
 - BE RUTHLESSLY TACTICAL. Avoid generic 'good UI' points. Go straight to Distribution and Business Model.
-- The 'whyTheyFailed' field applies to active companies too (their biggest frictions).`
+- The 'whyTheyFailed' field applies to active companies too (their biggest frictions).
+- FORMAT MUST BE PERFECT JSON. All text values MUST be enclosed in double quotes. Escape any internal quotes with a backslash (\").`
 }
 
 export async function POST(request: Request) {
@@ -207,8 +209,13 @@ You must base your analysis on REAL data, REAL companies, and REAL sources. Do n
     raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
     const match = raw.match(/\{[\s\S]*\}/)
     if (!match) {
+      console.error('Raw LLM Output:', raw)
       throw new Error('Invalid response format from LLM')
     }
+
+    console.log('--- RAW LLM JSON ---')
+    console.log(match[0])
+    console.log('--------------------')
 
     const parsed = JSON.parse(match[0])
 
@@ -218,10 +225,10 @@ You must base your analysis on REAL data, REAL companies, and REAL sources. Do n
       mcpConnected: Object.keys(mcpTools).length > 0,
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error finding doppelganger:', error)
     return Response.json(
-      { error: 'Failed to analyze your idea. Please try again.' },
+      { error: error?.message || 'Failed to analyze your idea. Please try again.' },
       { status: 500 }
     )
   } finally {
