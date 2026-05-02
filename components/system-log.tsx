@@ -62,7 +62,7 @@ export function SystemLog({ isActive, phase, lang = "en", onClose }: SystemLogPr
     ]
     const initialLogs = idleLogs.map((log, i) => ({
       ...log,
-      id: \`idle-\${i}\`,
+      id: `idle-${i}`,
       timestamp: formatTime(new Date()),
     })) as LogEntry[]
     setLogs(initialLogs)
@@ -82,7 +82,7 @@ export function SystemLog({ isActive, phase, lang = "en", onClose }: SystemLogPr
         if (logIndexRef.current < mcpLogs.length) {
           const newLog = {
             ...mcpLogs[logIndexRef.current],
-            id: \`log-\${logIndexRef.current}\`,
+            id: `log-${logIndexRef.current}`,
             timestamp: formatTime(new Date()),
           }
           setLogs(prev => [...prev, newLog])
@@ -144,7 +144,7 @@ export function SystemLog({ isActive, phase, lang = "en", onClose }: SystemLogPr
         <div className="h-full bg-[#050505] border border-[#1a1a1a] flex flex-col shadow-[0_0_20px_rgba(0,0,0,0.5)]">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a1a1a]">
             <div className="flex items-center gap-2">
-              <span className={\`w-1.5 h-1.5 rounded-full \${phase === "loading" ? "bg-[#FF4D00] animate-pulse" : "bg-green-400"}\`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${phase === "loading" ? "bg-[#FF4D00] animate-pulse" : "bg-green-400"}`} />
               <span className="font-mono text-[10px] tracking-[0.15em] text-[#666]">SYSTEM LOG</span>
             </div>
             <button 
@@ -198,7 +198,7 @@ export function SystemLog({ isActive, phase, lang = "en", onClose }: SystemLogPr
           onClick={() => setIsExpanded(false)}
           className="fixed top-20 right-4 z-40 font-mono text-[9px] tracking-wider bg-[#0a0a0a] border border-[#FF4D00]/30 px-3 py-1.5 text-[#FF4D00] hover:border-[#FF4D00] transition-colors flex items-center gap-2 uppercase"
         >
-          <span className={\`w-1.5 h-1.5 rounded-full \${phase === "loading" ? "bg-[#FF4D00] animate-pulse" : "bg-green-400"}\`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${phase === "loading" ? "bg-[#FF4D00] animate-pulse" : "bg-green-400"}`} />
           TELEMETRY
           <span className="text-[#666]">({logs.length})</span>
         </button>

@@ -149,12 +149,12 @@ export async function POST(request: Request) {
     const systemPrompt = getSystemPrompt(lang as 'en' | 'es')
     
     const searchInstruction = Object.keys(mcpTools).length > 0
-      ? `\n\nIMPORTANT: You have web search tools available. USE THEM to search for real-time data about this idea BEFORE generating your response. Search for:
-1. "${description}" competitors and similar startups
-2. "${description}" market size and growth
-3. "${description}" failed startups why
+      ? `\n\nIMPORTANT: You have web search tools available. USE THEM to perform a deep, rigorous investigation about this idea BEFORE generating your response. Search for:
+1. "${description}" exact competitors and similar startups
+2. Specific distribution channels and unit economics challenges for "${description}"
+3. "${description}" startup post-mortems and specific reasons why they failed (distribution, CAC, retention, etc.)
 
-Use the search results to ground your analysis in real, current data.`
+You must base your analysis on REAL data, REAL companies, and REAL sources. Do not hallucinate.`
       : ''
 
     const { text, steps } = await generateText({

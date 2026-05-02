@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { InteractiveCanvas } from "@/components/interactive-canvas"
 import { HUDOverlay } from "@/components/hud-overlay"
-import { SystemLog } from "@/components/system-log"
 
 // Updated Types for v3.0 API
 interface TopMatch {
@@ -270,7 +269,6 @@ export default function DoppelgangerApp() {
     <div className="min-h-screen bg-[#000] text-[#e5e5e5] overflow-x-hidden selection:bg-[#ff4d00] selection:text-black">
       <InteractiveCanvas />
       <HUDOverlay />
-      <SystemLog isActive={phase !== "idle"} phase={phase} lang={lang} />
 
       {/* Header with Language Selector */}
       <header className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 md:px-8 py-4 bg-[#000]/90 backdrop-blur-sm border-b border-[#1a1a1a]">
@@ -281,13 +279,13 @@ export default function DoppelgangerApp() {
           <div className="flex gap-2">
             <button 
               onClick={() => setLang("en")} 
-              className={\`font-mono text-[10px] md:text-[12px] px-2 py-1 border transition-colors \${lang === 'en' ? 'border-[#FF4D00] text-[#FF4D00]' : 'border-transparent text-[#666] hover:text-[#e5e5e5]'}\`}
+              className={`font-mono text-[10px] md:text-[12px] px-2 py-1 border transition-colors ${lang === 'en' ? 'border-[#FF4D00] text-[#FF4D00]' : 'border-transparent text-[#666] hover:text-[#e5e5e5]'}`}
             >
               EN
             </button>
             <button 
               onClick={() => setLang("es")} 
-              className={\`font-mono text-[10px] md:text-[12px] px-2 py-1 border transition-colors \${lang === 'es' ? 'border-[#FF4D00] text-[#FF4D00]' : 'border-transparent text-[#666] hover:text-[#e5e5e5]'}\`}
+              className={`font-mono text-[10px] md:text-[12px] px-2 py-1 border transition-colors ${lang === 'es' ? 'border-[#FF4D00] text-[#FF4D00]' : 'border-transparent text-[#666] hover:text-[#e5e5e5]'}`}
             >
               ES
             </button>
@@ -518,7 +516,7 @@ export default function DoppelgangerApp() {
                           <div className="flex items-start justify-between mb-6">
                             <div>
                               <h4 className="font-sans font-black text-2xl md:text-3xl tracking-tight text-[#e5e5e5] mb-2 uppercase">{dp.name}</h4>
-                              <span className={\`inline-block font-mono text-[10px] md:text-[11px] font-bold tracking-widest border-2 px-3 py-1 \${config.color} \${config.border} \${config.bg}\`}>
+                              <span className={`inline-block font-mono text-[10px] md:text-[11px] font-bold tracking-widest border-2 px-3 py-1 ${config.color} ${config.border} ${config.bg}`}>
                                 {dp.status}
                               </span>
                             </div>
