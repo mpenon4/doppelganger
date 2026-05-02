@@ -5,12 +5,14 @@ import { motion, AnimatePresence } from "framer-motion"
 import { InteractiveCanvas } from "@/components/interactive-canvas"
 import { HUDOverlay } from "@/components/hud-overlay"
 
-// Updated Types for v3.0 API
+// Updated Types for v3.5 API
 interface TopMatch {
   name: string
   status: "ACTIVA" | "MUERTA" | "ADQUIRIDA" | "ALIVE" | "DEAD" | "ACQUIRED"
   description: string
-  analysis: string
+  whyTheyFailed: string[]
+  whatTheyDidRight: string[]
+  unitEconomics: string
   keyLesson: string
 }
 
@@ -24,6 +26,11 @@ interface Verdict {
   strategy: string
 }
 
+interface PivotOption {
+  title: string
+  description: string
+}
+
 interface Source {
   title: string
   url: string
@@ -34,16 +41,14 @@ interface Results {
   topMatches: TopMatch[]
   radarAlternatives: RadarAlternative[]
   verdict: Verdict
+  pivotOptions: PivotOption[]
   sources?: Source[]
   mcpConnected?: boolean
 }
 
-interface ArchivedAnalysis {
-  id: string
+interface HistoryNode {
   idea: string
   results: Results
-  timestamp: number
-  lang: "en" | "es"
 }
 
 const statusConfig = {
@@ -70,27 +75,29 @@ const T = {
     ],
     placeholder: "Describe your startup idea...",
     ctrlEnter: "CTRL + ENTER",
-    localArchive: "LOCAL ARCHIVE",
-    clear: "[CLEAR]",
     marketEval: "MARKET EVALUATION",
     topMatches: "CLOSEST MATCHES",
     match: "MATCH",
-    est: "EST.",
-    src: "SRC",
     radar: "RADAR ALTERNATIVES",
     verdict: "DOPPELGANGER VERDICT",
     sources: "SOURCES (TAVILY MCP)",
     newSearch: "[NEW SEARCH]",
-    reiterate: "[RE-ITERATE IDEA]",
     loadingLogs: [
-      "> Initializing DOPPELGANGER v3.0...",
+      "> Initializing DOPPELGANGER v3.5...",
       "> Connecting to Tavily MCP Server...",
       "> Performing real-time market search...",
       "> Scanning competitor landscape...",
       "> Analyzing startup post-mortems...",
       "> Synthesizing data with Groq LLaMA...",
       "> Generating differentiation strategy...",
-    ]
+    ],
+    whyFailed: "WHY THEY FAILED / FRICTIONS",
+    whatRight: "TACTICAL WINS TO LEVERAGE",
+    unitEcon: "UNIT ECONOMICS",
+    keyLesson: "KEY LESSON",
+    pivotTree: "PIVOT OPTIONS (SELECT TO ITERATE)",
+    history: "ITERATION PATH",
+    start: "ORIGINAL IDEA"
   },
   es: {
     subtitle: "LA INTELIGENCIA PARA CONSTRUIR EL FUTURO",
@@ -105,27 +112,29 @@ const T = {
     ],
     placeholder: "Describe tu idea de startup...",
     ctrlEnter: "CTRL + ENTER",
-    localArchive: "ARCHIVO LOCAL",
-    clear: "[LIMPIAR]",
     marketEval: "EVALUACIÓN DEL MERCADO",
     topMatches: "LOS MATCHES MÁS PARECIDOS",
     match: "SIMILITUD",
-    est: "EST.",
-    src: "FUENTE",
     radar: "OTRAS OPCIONES EN EL RADAR",
     verdict: "EL VEREDICTO DE DOPPELGANGER",
     sources: "FUENTES (TAVILY MCP)",
     newSearch: "[NUEVA BÚSQUEDA]",
-    reiterate: "[RE-ITERAR IDEA]",
     loadingLogs: [
-      "> Inicializando DOPPELGANGER v3.0...",
+      "> Inicializando DOPPELGANGER v3.5...",
       "> Conectando al Servidor MCP de Tavily...",
       "> Realizando búsqueda de mercado en tiempo real...",
       "> Escaneando panorama de competidores...",
       "> Analizando autopsias de startups...",
       "> Sintetizando datos con Groq LLaMA...",
       "> Generando estrategia de diferenciación...",
-    ]
+    ],
+    whyFailed: "POR QUÉ FALLARON / FRICCIONES",
+    whatRight: "ACIERTOS TÁCTICOS PARA APALANCAR",
+    unitEcon: "UNIT ECONOMICS",
+    keyLesson: "LECCIÓN CLAVE",
+    pivotTree: "OPCIONES DE PIVOTEO (SELECCIONA PARA ITERAR)",
+    history: "RUTA DE ITERACIÓN",
+    start: "IDEA ORIGINAL"
   }
 }
 
@@ -137,7 +146,6 @@ const sectionVariants = {
   }
 }
 
-// Simple Markdown Renderer for bold and paragraphs
 const renderMarkdown = (text: string) => {
   if (!text) return null;
   return text.split('\n\n').map((paragraph, i) => (
@@ -155,32 +163,8 @@ export default function DoppelgangerApp() {
   const [logIndex, setLogIndex] = useState(0)
   const [results, setResults] = useState<Results | null>(null)
   const [error, setError] = useState("")
-  const [archive, setArchive] = useState<ArchivedAnalysis[]>([])
+  const [history, setHistory] = useState<HistoryNode[]>([])
   const inputRef = useRef<HTMLTextAreaElement>(null)
-
-  useEffect(() => {
-    const saved = localStorage.getItem("doppelganger_archive_v3")
-    if (saved) {
-      try {
-        setArchive(JSON.parse(saved))
-      } catch {}
-    }
-  }, [])
-
-  useEffect(() => {
-    if (results && idea) {
-      const newEntry: ArchivedAnalysis = {
-        id: Date.now().toString(),
-        idea: idea.slice(0, 100),
-        results,
-        timestamp: Date.now(),
-        lang
-      }
-      const updated = [newEntry, ...archive].slice(0, 10)
-      setArchive(updated)
-      localStorage.setItem("doppelganger_archive_v3", JSON.stringify(updated))
-    }
-  }, [results])
 
   useEffect(() => {
     if (phase === "loading") {
@@ -201,8 +185,16 @@ export default function DoppelgangerApp() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [idea, phase])
 
-  async function handleSubmit() {
-    if (!idea.trim() || phase !== "idle") return
+  async function handleSubmit(overrideIdea?: string) {
+    const currentIdea = overrideIdea || idea
+    if (!currentIdea.trim() || phase !== "idle") return
+    
+    // Push current state to history if we are pivoting
+    if (results && overrideIdea) {
+      setHistory(prev => [...prev, { idea: idea, results }])
+    }
+
+    setIdea(currentIdea)
     setPhase("loading")
     setError("")
     setLogIndex(0)
@@ -211,7 +203,7 @@ export default function DoppelgangerApp() {
       const res = await fetch("/api/find-doppelganger", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: idea, lang }),
+        body: JSON.stringify({ description: currentIdea, lang }),
       })
 
       if (!res.ok) {
@@ -241,28 +233,20 @@ export default function DoppelgangerApp() {
     setResults(null)
     setIdea("")
     setError("")
+    setHistory([])
   }
 
-  function reIterate() {
-    if (!results) return
-    const feedback = results.verdict.strategy.slice(0, 200) + "..."
-    const prefix = lang === 'es' ? '[ITERANDO BASADO EN: ' : '[ITERATING BASED ON FEEDBACK: '
-    setIdea(`${idea}\n\n${prefix}${feedback}]`)
-    setPhase("idle")
-    setResults(null)
-    setTimeout(() => inputRef.current?.focus(), 100)
-  }
+  function loadHistoryState(index: number) {
+    if (index === -1) return // Do nothing if trying to load current state
 
-  function loadFromArchive(entry: ArchivedAnalysis) {
-    setIdea(entry.idea)
-    setResults(entry.results)
-    setLang(entry.lang || "en")
+    // Slice history array
+    const newHistory = history.slice(0, index)
+    const targetState = history[index]
+    
+    setHistory(newHistory)
+    setIdea(targetState.idea)
+    setResults(targetState.results)
     setPhase("results")
-  }
-
-  function clearArchive() {
-    setArchive([])
-    localStorage.removeItem("doppelganger_archive_v3")
   }
 
   return (
@@ -270,9 +254,9 @@ export default function DoppelgangerApp() {
       <InteractiveCanvas />
       <HUDOverlay />
 
-      {/* Header with Language Selector */}
+      {/* Header */}
       <header className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 md:px-8 py-4 bg-[#000]/90 backdrop-blur-sm border-b border-[#1a1a1a]">
-        <span className="font-mono text-lg md:text-xl lg:text-2xl tracking-[0.25em] font-black text-[#FF4D00] uppercase">
+        <span className="font-mono text-lg md:text-xl lg:text-2xl tracking-[0.25em] font-black text-[#FF4D00] uppercase cursor-pointer" onClick={reset}>
           DOPPELGANGER
         </span>
         <div className="flex items-center gap-4">
@@ -290,7 +274,7 @@ export default function DoppelgangerApp() {
               ES
             </button>
           </div>
-          <span className="hidden md:inline font-mono text-[8px] md:text-[9px] text-[#333] tracking-wider">v3.0_MCP</span>
+          <span className="hidden md:inline font-mono text-[8px] md:text-[9px] text-[#333] tracking-wider">v3.5_MCP</span>
         </div>
       </header>
 
@@ -339,27 +323,6 @@ export default function DoppelgangerApp() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
-                className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12 md:mb-16 w-full max-w-4xl px-4"
-              >
-                {t.stats.map((stat, i) => (
-                  <div
-                    key={i}
-                    className="bg-[#050505] border-2 border-[#1a1a1a] p-4 md:p-6 text-center hover:border-[#FF4D00] hover:-translate-y-1 transition-all duration-300 group"
-                  >
-                    <p className="font-sans text-3xl md:text-4xl font-black tracking-tighter text-[#FF4D00] mb-2 group-hover:scale-110 transition-transform">
-                      {stat.value}
-                    </p>
-                    <p className="font-mono text-[9px] md:text-[10px] text-[#666] leading-tight uppercase font-bold tracking-wider">
-                      {stat.label}
-                    </p>
-                  </div>
-                ))}
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.7 }}
                 className="w-full max-w-3xl px-4"
               >
@@ -375,7 +338,7 @@ export default function DoppelgangerApp() {
                   <div className="absolute bottom-4 right-4 flex items-center gap-4">
                     <span className="hidden sm:block font-mono text-[10px] tracking-widest text-[#444]">{t.ctrlEnter}</span>
                     <button
-                      onClick={handleSubmit}
+                      onClick={() => handleSubmit()}
                       disabled={!idea.trim()}
                       className="h-12 px-8 flex items-center justify-center bg-[#FF4D00] text-[#000] font-bold tracking-wider disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#fff] transition-colors"
                     >
@@ -387,55 +350,6 @@ export default function DoppelgangerApp() {
                 </div>
                 {error && <p className="mt-4 font-mono text-[12px] text-red-500 text-center font-bold">{error}</p>}
               </motion.div>
-
-              {archive.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.9 }}
-                  className="w-full max-w-3xl px-4 mt-16"
-                >
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-mono text-[11px] tracking-[0.2em] text-[#666] flex items-center gap-3">
-                      <span className="w-6 h-[2px] bg-[#333]" />
-                      {t.localArchive}
-                      <span className="text-[#444]">({archive.length})</span>
-                    </h3>
-                    <button 
-                      onClick={clearArchive}
-                      className="font-mono text-[10px] text-[#444] hover:text-red-500 transition-colors tracking-widest"
-                    >
-                      {t.clear}
-                    </button>
-                  </div>
-                  <div className="space-y-3">
-                    {archive.slice(0, 5).map((entry) => (
-                      <button
-                        key={entry.id}
-                        onClick={() => loadFromArchive(entry)}
-                        className="w-full text-left bg-[#050505] border border-[#1a1a1a] p-4 hover:border-[#FF4D00] transition-colors group flex items-center justify-between"
-                      >
-                        <div className="flex-1 min-w-0 mr-4">
-                          <p className="font-mono text-[12px] text-[#888] truncate group-hover:text-[#e5e5e5] transition-colors mb-1">
-                            {entry.idea}
-                          </p>
-                          <p className="font-sans text-[11px] font-bold text-[#FF4D00]/80 truncate uppercase">
-                            {entry.results.verdict.title}
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span className="block font-mono text-[10px] text-[#444] mb-1">
-                            {new Date(entry.timestamp).toLocaleDateString()}
-                          </span>
-                          <span className="font-mono text-[9px] px-2 py-0.5 bg-[#1a1a1a] text-[#888] uppercase">
-                            {entry.lang}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
             </motion.div>
           )}
 
@@ -483,6 +397,26 @@ export default function DoppelgangerApp() {
               className="min-h-screen px-4 md:px-6 pt-24"
             >
               <div className="max-w-5xl mx-auto space-y-12">
+
+                {/* History Breadcrumbs */}
+                {history.length > 0 && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-wrap items-center gap-2 text-sm font-mono bg-[#050505] p-4 border border-[#1a1a1a]">
+                    <span className="text-[#666]">{t.history}: </span>
+                    {history.map((h, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <button 
+                          onClick={() => loadHistoryState(i)}
+                          className="text-[#888] hover:text-[#FF4D00] transition-colors truncate max-w-[150px]"
+                          title={h.idea}
+                        >
+                          {i === 0 ? t.start : `Pivot ${i}`}
+                        </button>
+                        <span className="text-[#333]">&gt;</span>
+                      </div>
+                    ))}
+                    <span className="text-[#e5e5e5] border-b border-[#FF4D00]">Current</span>
+                  </motion.div>
+                )}
                 
                 {/* 1. Market Evaluation */}
                 <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 0.1 }}>
@@ -495,7 +429,7 @@ export default function DoppelgangerApp() {
                   </div>
                 </motion.section>
 
-                {/* 2. Top Matches */}
+                {/* 2. Top Matches (Deep Analysis) */}
                 <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 0.3 }}>
                   <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
                     <span className="w-8 h-[4px] bg-[#FF4D00]" />
@@ -513,7 +447,7 @@ export default function DoppelgangerApp() {
                           transition={{ delay: 0.4 + i * 0.1 }}
                           className="bg-[#050505] border-2 border-[#1a1a1a] hover:border-[#FF4D00] p-6 transition-colors flex flex-col"
                         >
-                          <div className="flex items-start justify-between mb-6">
+                          <div className="flex items-start justify-between mb-6 border-b border-[#1a1a1a] pb-4">
                             <div>
                               <h4 className="font-sans font-black text-2xl md:text-3xl tracking-tight text-[#e5e5e5] mb-2 uppercase">{dp.name}</h4>
                               <span className={`inline-block font-mono text-[10px] md:text-[11px] font-bold tracking-widest border-2 px-3 py-1 ${config.color} ${config.border} ${config.bg}`}>
@@ -522,19 +456,52 @@ export default function DoppelgangerApp() {
                             </div>
                           </div>
                           
-                          <div className="space-y-4 flex-1">
+                          <div className="space-y-6 flex-1">
                             <div>
-                              <p className="font-mono text-[9px] text-[#666] tracking-widest uppercase mb-1">INFO</p>
                               <p className="font-mono text-[13px] text-[#aaa]">{dp.description}</p>
                             </div>
-                            <div>
-                              <p className="font-mono text-[9px] text-[#666] tracking-widest uppercase mb-1">ANALYSIS</p>
-                              <p className="font-mono text-[13px] text-[#aaa]">{dp.analysis}</p>
-                            </div>
+
+                            {/* Why They Failed / Frictions */}
+                            {dp.whyTheyFailed && dp.whyTheyFailed.length > 0 && (
+                              <div className="bg-[#1a0a0a] border border-red-900/30 p-4">
+                                <p className="font-mono text-[10px] text-red-400 tracking-widest uppercase mb-3 font-bold flex items-center gap-2">
+                                  <span className="w-2 h-2 bg-red-500 rounded-full" />
+                                  {t.whyFailed}
+                                </p>
+                                <ul className="list-disc pl-4 space-y-2">
+                                  {dp.whyTheyFailed.map((reason, idx) => (
+                                    <li key={idx} className="font-mono text-[12px] text-[#ccc] leading-relaxed">{reason}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* What They Did Right */}
+                            {dp.whatTheyDidRight && dp.whatTheyDidRight.length > 0 && (
+                              <div className="bg-[#0a1a0a] border border-green-900/30 p-4">
+                                <p className="font-mono text-[10px] text-green-400 tracking-widest uppercase mb-3 font-bold flex items-center gap-2">
+                                  <span className="w-2 h-2 bg-green-500 rounded-full" />
+                                  {t.whatRight}
+                                </p>
+                                <ul className="list-disc pl-4 space-y-2">
+                                  {dp.whatTheyDidRight.map((win, idx) => (
+                                    <li key={idx} className="font-mono text-[12px] text-[#ccc] leading-relaxed">{win}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Unit Economics */}
+                            {dp.unitEconomics && (
+                              <div>
+                                <p className="font-mono text-[9px] text-[#666] tracking-widest uppercase mb-1">{t.unitEcon}</p>
+                                <p className="font-mono text-[13px] text-[#aaa] border-l-2 border-[#333] pl-3 py-1">{dp.unitEconomics}</p>
+                              </div>
+                            )}
                           </div>
                           
                           <div className="mt-6 pt-6 border-t border-[#1a1a1a]">
-                            <p className="font-mono text-[10px] text-[#FF4D00] tracking-widest uppercase mb-2 font-bold">KEY LESSON</p>
+                            <p className="font-mono text-[10px] text-[#FF4D00] tracking-widest uppercase mb-2 font-bold">{t.keyLesson}</p>
                             <p className="font-sans text-[15px] font-medium text-[#e5e5e5] leading-snug">{dp.keyLesson}</p>
                           </div>
                         </motion.div>
@@ -566,9 +533,6 @@ export default function DoppelgangerApp() {
                     {t.verdict}
                   </h3>
                   <div className="border-4 border-[#FF4D00] p-8 md:p-12 relative bg-[#050505] shadow-[0_0_50px_rgba(255,77,0,0.1)]">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-                      <svg width="120" height="120" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13h-13L12 6.5z"/></svg>
-                    </div>
                     <motion.h2 
                       className="relative font-sans font-black text-4xl md:text-6xl lg:text-7xl tracking-tighter leading-[0.9] mb-8 text-[#e5e5e5] uppercase"
                       initial={{ scale: 0.95, opacity: 0 }}
@@ -583,9 +547,35 @@ export default function DoppelgangerApp() {
                   </div>
                 </motion.section>
 
-                {/* 5. Sources */}
-                {results.sources && results.sources.length > 0 && (
+                {/* 5. Pivot Options (Branching) */}
+                {results.pivotOptions && results.pivotOptions.length > 0 && (
                   <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 0.9 }}>
+                    <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
+                      <span className="w-8 h-[4px] bg-[#FF4D00]" />
+                      {t.pivotTree}
+                    </h3>
+                    <div className="flex flex-col gap-4">
+                      {results.pivotOptions.map((pivot, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            const newIdea = `Idea original: ${idea}\n\nPivote Seleccionado: ${pivot.title} - ${pivot.description}`
+                            handleSubmit(newIdea)
+                          }}
+                          className="group relative bg-[#050505] border-2 border-[#1a1a1a] hover:border-[#FF4D00] p-6 text-left transition-all hover:pl-8 overflow-hidden"
+                        >
+                          <div className="absolute inset-y-0 left-0 w-2 bg-[#FF4D00] transform -translate-x-full group-hover:translate-x-0 transition-transform" />
+                          <h4 className="font-sans font-black text-xl md:text-2xl text-[#e5e5e5] mb-2 uppercase tracking-tight group-hover:text-[#FF4D00] transition-colors">{pivot.title}</h4>
+                          <p className="font-mono text-[13px] text-[#888] leading-relaxed">{pivot.description}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </motion.section>
+                )}
+
+                {/* 6. Sources */}
+                {results.sources && results.sources.length > 0 && (
+                  <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 1.1 }}>
                      <h3 className="font-mono text-[11px] tracking-widest text-[#666] mb-4 uppercase">
                       {t.sources}
                     </h3>
@@ -610,8 +600,8 @@ export default function DoppelgangerApp() {
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.1 }}
-                  className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-12 pb-24"
+                  transition={{ delay: 1.2 }}
+                  className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-12 pb-24 border-t border-[#1a1a1a] mt-12"
                 >
                   <button
                     onClick={reset}
@@ -619,13 +609,8 @@ export default function DoppelgangerApp() {
                   >
                     {t.newSearch}
                   </button>
-                  <button
-                    onClick={reIterate}
-                    className="w-full sm:w-auto font-mono text-[11px] font-bold tracking-[0.2em] bg-[#FF4D00] text-[#000] px-10 py-4 hover:bg-[#fff] transition-all uppercase"
-                  >
-                    {t.reiterate}
-                  </button>
                 </motion.div>
+
               </div>
             </motion.div>
           )}
