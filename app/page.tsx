@@ -4,26 +4,39 @@ import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { InteractiveCanvas } from "@/components/interactive-canvas"
 import { HUDOverlay } from "@/components/hud-overlay"
-
 import { SystemLog } from "@/components/system-log"
 
-// Types
-interface Doppelganger {
+// Updated Types for v3.0 API
+interface TopMatch {
   name: string
-  founded: string
-  similarity: number
-  status: "ALIVE" | "DEAD" | "ACQUIRED"
-  reason: string
+  status: "ACTIVA" | "MUERTA" | "ADQUIRIDA" | "ALIVE" | "DEAD" | "ACQUIRED"
+  description: string
+  analysis: string
+  keyLesson: string
+}
+
+interface RadarAlternative {
+  name: string
+  focus: string
+}
+
+interface Verdict {
+  title: string
+  strategy: string
+}
+
+interface Source {
+  title: string
+  url: string
 }
 
 interface Results {
-  doppelgangers: Doppelganger[]
-  autopsy: string[]
-  opportunities: string[]
-  verdict: {
-    title: string
-    summary: string
-  }
+  marketEvaluation: string
+  topMatches: TopMatch[]
+  radarAlternatives: RadarAlternative[]
+  verdict: Verdict
+  sources?: Source[]
+  mcpConnected?: boolean
 }
 
 interface ArchivedAnalysis {
@@ -31,43 +44,113 @@ interface ArchivedAnalysis {
   idea: string
   results: Results
   timestamp: number
+  lang: "en" | "es"
 }
 
 const statusConfig = {
   ALIVE: { color: "text-green-400", border: "border-green-400/50", bg: "bg-green-400/10" },
   DEAD: { color: "text-red-500", border: "border-red-500/50", bg: "bg-red-500/10" },
   ACQUIRED: { color: "text-blue-400", border: "border-blue-400/50", bg: "bg-blue-400/10" },
+  ACTIVA: { color: "text-green-400", border: "border-green-400/50", bg: "bg-green-400/10" },
+  MUERTA: { color: "text-red-500", border: "border-red-500/50", bg: "bg-red-500/10" },
+  ADQUIRIDA: { color: "text-blue-400", border: "border-blue-400/50", bg: "bg-blue-400/10" },
 }
 
-const loadingLogs = [
-  "> Initializing DOPPELGANGER engine...",
-  "> Connecting to startup graveyards...",
-  "> Scanning 38,420 startup post-mortems...",
-  "> Cross-referencing failure patterns...",
-  "> Analyzing market saturation levels...",
-  "> Computing differentiation vectors...",
-  "> Preparing brutal verdict...",
-]
-
-// Animation variants
-const sectionVariants = {
-  hidden: { 
-    opacity: 0, 
-    x: -30,
-    filter: "blur(4px)"
+// Translations
+const T = {
+  en: {
+    subtitle: "THE INTELLIGENCE TO BUILD WHAT'S NEXT",
+    title1: "BUILD DIFFERENT.",
+    title2: "BECAUSE THEY DIDN'T.",
+    desc: "Validate your startup idea. Discover the state of play, learn from mistakes, and build what others missed.",
+    stats: [
+      { value: "12,847", label: "Active Startups" },
+      { value: "86%", label: "Fail Due to Avoidable Errors" },
+      { value: "4.7M+", label: "Lessons from Failure" },
+      { value: "∞", label: "Opportunities" },
+    ],
+    placeholder: "Describe your startup idea...",
+    ctrlEnter: "CTRL + ENTER",
+    localArchive: "LOCAL ARCHIVE",
+    clear: "[CLEAR]",
+    marketEval: "MARKET EVALUATION",
+    topMatches: "CLOSEST MATCHES",
+    match: "MATCH",
+    est: "EST.",
+    src: "SRC",
+    radar: "RADAR ALTERNATIVES",
+    verdict: "DOPPELGANGER VERDICT",
+    sources: "SOURCES (TAVILY MCP)",
+    newSearch: "[NEW SEARCH]",
+    reiterate: "[RE-ITERATE IDEA]",
+    loadingLogs: [
+      "> Initializing DOPPELGANGER v3.0...",
+      "> Connecting to Tavily MCP Server...",
+      "> Performing real-time market search...",
+      "> Scanning competitor landscape...",
+      "> Analyzing startup post-mortems...",
+      "> Synthesizing data with Groq LLaMA...",
+      "> Generating differentiation strategy...",
+    ]
   },
-  visible: { 
-    opacity: 1, 
-    x: 0,
-    filter: "blur(0px)",
-    transition: {
-      duration: 0.6,
-      ease: [0.25, 0.46, 0.45, 0.94]
-    }
+  es: {
+    subtitle: "LA INTELIGENCIA PARA CONSTRUIR EL FUTURO",
+    title1: "CONSTRUYE DIFERENTE.",
+    title2: "PORQUE ELLOS NO LO HICIERON.",
+    desc: "Valida tu idea de startup. Descubre el estado del arte, aprende de los errores y construye lo que otros pasaron por alto.",
+    stats: [
+      { value: "12,847", label: "Startups Activas" },
+      { value: "86%", label: "Fallan por Errores Evitables" },
+      { value: "4.7M+", label: "Lecciones de Fracasos" },
+      { value: "∞", label: "Oportunidades" },
+    ],
+    placeholder: "Describe tu idea de startup...",
+    ctrlEnter: "CTRL + ENTER",
+    localArchive: "ARCHIVO LOCAL",
+    clear: "[LIMPIAR]",
+    marketEval: "EVALUACIÓN DEL MERCADO",
+    topMatches: "LOS MATCHES MÁS PARECIDOS",
+    match: "SIMILITUD",
+    est: "EST.",
+    src: "FUENTE",
+    radar: "OTRAS OPCIONES EN EL RADAR",
+    verdict: "EL VEREDICTO DE DOPPELGANGER",
+    sources: "FUENTES (TAVILY MCP)",
+    newSearch: "[NUEVA BÚSQUEDA]",
+    reiterate: "[RE-ITERAR IDEA]",
+    loadingLogs: [
+      "> Inicializando DOPPELGANGER v3.0...",
+      "> Conectando al Servidor MCP de Tavily...",
+      "> Realizando búsqueda de mercado en tiempo real...",
+      "> Escaneando panorama de competidores...",
+      "> Analizando autopsias de startups...",
+      "> Sintetizando datos con Groq LLaMA...",
+      "> Generando estrategia de diferenciación...",
+    ]
   }
 }
 
+const sectionVariants = {
+  hidden: { opacity: 0, x: -30, filter: "blur(4px)" },
+  visible: { 
+    opacity: 1, x: 0, filter: "blur(0px)",
+    transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }
+  }
+}
+
+// Simple Markdown Renderer for bold and paragraphs
+const renderMarkdown = (text: string) => {
+  if (!text) return null;
+  return text.split('\n\n').map((paragraph, i) => (
+    <p key={i} className="mb-4 last:mb-0" dangerouslySetInnerHTML={{
+      __html: paragraph.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    }} />
+  ))
+}
+
 export default function DoppelgangerApp() {
+  const [lang, setLang] = useState<"en" | "es">("en")
+  const t = T[lang]
   const [idea, setIdea] = useState("")
   const [phase, setPhase] = useState<"idle" | "loading" | "results">("idle")
   const [logIndex, setLogIndex] = useState(0)
@@ -76,44 +159,39 @@ export default function DoppelgangerApp() {
   const [archive, setArchive] = useState<ArchivedAnalysis[]>([])
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // Load archive from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem("doppelganger_archive")
+    const saved = localStorage.getItem("doppelganger_archive_v3")
     if (saved) {
       try {
         setArchive(JSON.parse(saved))
-      } catch {
-        // Invalid data, ignore
-      }
+      } catch {}
     }
   }, [])
 
-  // Save to localStorage when results change
   useEffect(() => {
     if (results && idea) {
       const newEntry: ArchivedAnalysis = {
         id: Date.now().toString(),
         idea: idea.slice(0, 100),
         results,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        lang
       }
-      const updated = [newEntry, ...archive].slice(0, 10) // Keep last 10
+      const updated = [newEntry, ...archive].slice(0, 10)
       setArchive(updated)
-      localStorage.setItem("doppelganger_archive", JSON.stringify(updated))
+      localStorage.setItem("doppelganger_archive_v3", JSON.stringify(updated))
     }
   }, [results])
 
-  // Cycle through loading logs
   useEffect(() => {
     if (phase === "loading") {
       const interval = setInterval(() => {
-        setLogIndex((i) => (i + 1) % loadingLogs.length)
+        setLogIndex((i) => (i + 1) % t.loadingLogs.length)
       }, 700)
       return () => clearInterval(interval)
     }
-  }, [phase])
+  }, [phase, t.loadingLogs.length])
 
-  // Ctrl+Enter shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && idea.trim() && phase === "idle") {
@@ -130,75 +208,28 @@ export default function DoppelgangerApp() {
     setError("")
     setLogIndex(0)
 
-    const prompt = `You are a brutally honest startup analyst with access to comprehensive startup data. Analyze this startup idea and find real companies that tried similar things.
-
-STARTUP IDEA: "${idea}"
-
-Return ONLY valid JSON (no markdown, no code blocks, no backticks):
-{
-  "doppelgangers": [
-    {
-      "name": "Real company name",
-      "founded": "2019",
-      "similarity": 85,
-      "status": "DEAD",
-      "reason": "Specific reason for failure/success in 1-2 sentences"
-    }
-  ],
-  "autopsy": [
-    "Specific technical or market failure pattern 1",
-    "Specific failure pattern 2 with concrete details",
-    "Specific failure pattern 3"
-  ],
-  "opportunities": [
-    "Specific technical differentiator or market gap 1",
-    "Concrete opportunity 2 they all missed",
-    "Actionable pivot suggestion 3"
-  ],
-  "verdict": {
-    "title": "VERDICT IN 5 WORDS MAX (e.g., TOO LITTLE TOO LATE, HIGH VELOCITY POTENTIAL, GRAVEYARD IS FULL)",
-    "summary": "2-3 sentences: Brutal honest assessment of market saturation and the single biggest opportunity or fatal flaw."
-  }
-}
-
-REQUIREMENTS:
-- Include 3-5 REAL doppelgangers with accurate founding years
-- Status must be exactly "DEAD", "ALIVE", or "ACQUIRED"
-- Similarity percentages between 40-95%
-- Sort doppelgangers by similarity (highest first)
-- Be specific and brutal in all assessments`
-
     try {
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const res = await fetch("/api/find-doppelganger", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer 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",
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          max_tokens: 2000,
-          temperature: 0.7,
-          messages: [
-            { role: "system", content: "You are a startup analyst. Respond only with valid JSON. No markdown, no code blocks." },
-            { role: "user", content: prompt },
-          ],
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: idea, lang }),
       })
 
-      if (!res.ok) throw new Error("API request failed")
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || "Analysis failed")
+      }
 
       const data = await res.json()
-      let raw = data.choices?.[0]?.message?.content || ""
-      raw = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim()
-      const match = raw.match(/\{[\s\S]*\}/)
-      if (!match) throw new Error("Invalid response format")
       
-      const parsed: Results = JSON.parse(match[0])
-      parsed.doppelgangers.sort((a, b) => b.similarity - a.similarity)
+      if (data.easterEgg) {
+        setError(data.message)
+        setPhase("idle")
+        return
+      }
       
       await new Promise((r) => setTimeout(r, 600))
-      setResults(parsed)
+      setResults(data)
       setPhase("results")
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed")
@@ -215,8 +246,9 @@ REQUIREMENTS:
 
   function reIterate() {
     if (!results) return
-    const feedback = results.verdict.summary + " " + results.opportunities.join(". ")
-    setIdea(`${idea}\n\n[ITERATING BASED ON FEEDBACK: ${feedback}]`)
+    const feedback = results.verdict.strategy.slice(0, 200) + "..."
+    const prefix = lang === 'es' ? '[ITERANDO BASADO EN: ' : '[ITERATING BASED ON FEEDBACK: '
+    setIdea(`${idea}\n\n${prefix}${feedback}]`)
     setPhase("idle")
     setResults(null)
     setTimeout(() => inputRef.current?.focus(), 100)
@@ -225,65 +257,75 @@ REQUIREMENTS:
   function loadFromArchive(entry: ArchivedAnalysis) {
     setIdea(entry.idea)
     setResults(entry.results)
+    setLang(entry.lang || "en")
     setPhase("results")
   }
 
   function clearArchive() {
     setArchive([])
-    localStorage.removeItem("doppelganger_archive")
+    localStorage.removeItem("doppelganger_archive_v3")
   }
 
   return (
-    <div className="min-h-screen bg-[#000] text-[#e5e5e5] overflow-x-hidden">
-      {/* Interactive Background */}
+    <div className="min-h-screen bg-[#000] text-[#e5e5e5] overflow-x-hidden selection:bg-[#ff4d00] selection:text-black">
       <InteractiveCanvas />
-      
-      {/* HUD Overlay */}
       <HUDOverlay />
+      <SystemLog isActive={phase !== "idle"} phase={phase} lang={lang} />
 
-      {/* System Log - MCP Transparency */}
-      <SystemLog isActive={phase !== "idle"} phase={phase} />
-
-      {/* Minimal Header - Logo Only */}
+      {/* Header with Language Selector */}
       <header className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-4 md:px-8 py-4 bg-[#000]/90 backdrop-blur-sm border-b border-[#1a1a1a]">
-        <span className="font-mono text-lg md:text-xl lg:text-2xl tracking-[0.25em] font-black text-[#FF4D00]">
+        <span className="font-mono text-lg md:text-xl lg:text-2xl tracking-[0.25em] font-black text-[#FF4D00] uppercase">
           DOPPELGANGER
         </span>
-        <span className="font-mono text-[8px] md:text-[9px] text-[#333] tracking-wider">v2.1.0</span>
+        <div className="flex items-center gap-4">
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setLang("en")} 
+              className={\`font-mono text-[10px] md:text-[12px] px-2 py-1 border transition-colors \${lang === 'en' ? 'border-[#FF4D00] text-[#FF4D00]' : 'border-transparent text-[#666] hover:text-[#e5e5e5]'}\`}
+            >
+              EN
+            </button>
+            <button 
+              onClick={() => setLang("es")} 
+              className={\`font-mono text-[10px] md:text-[12px] px-2 py-1 border transition-colors \${lang === 'es' ? 'border-[#FF4D00] text-[#FF4D00]' : 'border-transparent text-[#666] hover:text-[#e5e5e5]'}\`}
+            >
+              ES
+            </button>
+          </div>
+          <span className="hidden md:inline font-mono text-[8px] md:text-[9px] text-[#333] tracking-wider">v3.0_MCP</span>
+        </div>
       </header>
 
-      {/* Main Content */}
-      <main className="relative min-h-screen">
+      <main className="relative min-h-screen pb-32">
         <AnimatePresence mode="wait">
-          {/* IDLE STATE - Hero */}
           {phase === "idle" && (
             <motion.div
               key="hero"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, y: -30 }}
-              className="min-h-screen flex flex-col items-center justify-center px-4 md:px-6 pt-20 pb-32"
+              className="min-h-screen flex flex-col items-center justify-center px-4 md:px-6 pt-20"
             >
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="font-mono text-[9px] md:text-[10px] tracking-[0.4em] text-[#666] mb-6 md:mb-8"
+                className="font-mono text-[9px] md:text-[10px] tracking-[0.4em] text-[#666] mb-6 md:mb-8 text-center uppercase"
               >
-                THE INTELLIGENCE TO BUILD WHAT&apos;S NEXT
+                {t.subtitle}
               </motion.p>
 
               <motion.h1
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3, duration: 0.6 }}
-                className="text-center mb-4 md:mb-6"
+                className="text-center mb-4 md:mb-6 basement-title"
               >
-                <span className="block font-sans font-black text-[11vw] md:text-[7vw] lg:text-[5vw] leading-[0.95] tracking-tight text-[#e5e5e5]">
-                  BUILD DIFFERENT.
+                <span className="block font-sans font-black text-[12vw] md:text-[8vw] lg:text-[7vw] leading-[0.85] tracking-tighter text-[#e5e5e5] uppercase">
+                  {t.title1}
                 </span>
-                <span className="block font-sans font-black text-[11vw] md:text-[7vw] lg:text-[5vw] leading-[0.95] tracking-tight text-[#FF4D00]">
-                  BECAUSE THEY DIDN&apos;T.
+                <span className="block font-sans font-black text-[12vw] md:text-[8vw] lg:text-[7vw] leading-[0.85] tracking-tighter text-[#FF4D00] uppercase">
+                  {t.title2}
                 </span>
               </motion.h1>
 
@@ -291,113 +333,106 @@ REQUIREMENTS:
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="font-mono text-[11px] md:text-[12px] text-[#666] text-center max-w-md mb-10 md:mb-12 leading-relaxed px-4"
+                className="font-mono text-[12px] md:text-[14px] text-[#888] text-center max-w-lg mb-10 md:mb-12 leading-relaxed px-4"
               >
-                Validate your startup idea. Discover the state of play, learn from
-                mistakes, and build what others missed.
+                {t.desc}
               </motion.p>
 
-              {/* Stats Row */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.6 }}
-                className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-12 md:mb-16 w-full max-w-3xl px-4"
+                className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12 md:mb-16 w-full max-w-4xl px-4"
               >
-                {[
-                  { value: "12,847", label: "Active Startups Today" },
-                  { value: "86%", label: "Fail Due to Avoidable Errors" },
-                  { value: "4.7M+", label: "Lessons from Failure" },
-                  { value: "\u221E", label: "Opportunities to Be Different" },
-                ].map((stat, i) => (
+                {t.stats.map((stat, i) => (
                   <div
                     key={i}
-                    className="bg-[#0a0a0a]/80 border border-[#FF4D00]/20 p-4 md:p-5 text-center hover:border-[#FF4D00]/50 transition-colors"
+                    className="bg-[#050505] border-2 border-[#1a1a1a] p-4 md:p-6 text-center hover:border-[#FF4D00] hover:-translate-y-1 transition-all duration-300 group"
                   >
-                    <p className="font-mono text-xl md:text-2xl font-bold text-[#FF4D00] mb-1">
+                    <p className="font-sans text-3xl md:text-4xl font-black tracking-tighter text-[#FF4D00] mb-2 group-hover:scale-110 transition-transform">
                       {stat.value}
                     </p>
-                    <p className="font-mono text-[9px] md:text-[10px] text-[#666] leading-tight">
+                    <p className="font-mono text-[9px] md:text-[10px] text-[#666] leading-tight uppercase font-bold tracking-wider">
                       {stat.label}
                     </p>
                   </div>
                 ))}
               </motion.div>
 
-              {/* Search Terminal */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.7 }}
-                className="w-full max-w-2xl px-4"
+                className="w-full max-w-3xl px-4"
               >
-                <div className="relative bg-[#0a0a0a] border border-[#FF4D00]/30 shadow-[0_0_30px_rgba(255,77,0,0.1)]">
+                <div className="relative bg-[#050505] border-2 border-[#333] hover:border-[#FF4D00] transition-colors shadow-[0_0_40px_rgba(255,77,0,0.05)] focus-within:shadow-[0_0_40px_rgba(255,77,0,0.2)]">
                   <textarea
                     ref={inputRef}
                     value={idea}
                     onChange={(e) => setIdea(e.target.value)}
-                    placeholder="Describe your startup idea..."
-                    rows={3}
-                    className="w-full bg-transparent px-5 py-4 text-[13px] md:text-[14px] font-mono text-[#e5e5e5] placeholder:text-[#444] resize-none focus:outline-none"
+                    placeholder={t.placeholder}
+                    rows={4}
+                    className="w-full bg-transparent px-6 py-5 text-[15px] md:text-[16px] font-mono text-[#e5e5e5] placeholder:text-[#444] resize-none focus:outline-none"
                   />
-                  <div className="absolute bottom-3 right-3 flex items-center gap-3">
-                    <span className="hidden sm:block font-mono text-[9px] text-[#444]">CTRL + ENTER</span>
+                  <div className="absolute bottom-4 right-4 flex items-center gap-4">
+                    <span className="hidden sm:block font-mono text-[10px] tracking-widest text-[#444]">{t.ctrlEnter}</span>
                     <button
                       onClick={handleSubmit}
                       disabled={!idea.trim()}
-                      className="w-9 h-9 flex items-center justify-center bg-[#FF4D00] text-[#000] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#ff6a33] transition-colors"
+                      className="h-12 px-8 flex items-center justify-center bg-[#FF4D00] text-[#000] font-bold tracking-wider disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#fff] transition-colors"
                     >
-                      <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
-                        <path d="M3 9H15M15 9L10 4M15 9L10 14" stroke="currentColor" strokeWidth="2" />
+                      <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
+                        <path d="M3 9H15M15 9L10 4M15 9L10 14" stroke="currentColor" strokeWidth="2.5" />
                       </svg>
                     </button>
                   </div>
                 </div>
-
-                {error && (
-                  <p className="mt-4 font-mono text-[11px] text-red-400 text-center">{error}</p>
-                )}
+                {error && <p className="mt-4 font-mono text-[12px] text-red-500 text-center font-bold">{error}</p>}
               </motion.div>
 
-              {/* Local Archive */}
               {archive.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.9 }}
-                  className="w-full max-w-2xl px-4 mt-12"
+                  className="w-full max-w-3xl px-4 mt-16"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-mono text-[10px] tracking-[0.2em] text-[#666] flex items-center gap-2">
-                      <span className="w-4 h-[1px] bg-[#333]" />
-                      LOCAL ARCHIVE
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-mono text-[11px] tracking-[0.2em] text-[#666] flex items-center gap-3">
+                      <span className="w-6 h-[2px] bg-[#333]" />
+                      {t.localArchive}
                       <span className="text-[#444]">({archive.length})</span>
                     </h3>
                     <button 
                       onClick={clearArchive}
-                      className="font-mono text-[9px] text-[#444] hover:text-red-400 transition-colors"
+                      className="font-mono text-[10px] text-[#444] hover:text-red-500 transition-colors tracking-widest"
                     >
-                      [CLEAR]
+                      {t.clear}
                     </button>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {archive.slice(0, 5).map((entry) => (
                       <button
                         key={entry.id}
                         onClick={() => loadFromArchive(entry)}
-                        className="w-full text-left bg-[#0a0a0a]/50 border border-[#1a1a1a] p-3 hover:border-[#FF4D00]/30 transition-colors group"
+                        className="w-full text-left bg-[#050505] border border-[#1a1a1a] p-4 hover:border-[#FF4D00] transition-colors group flex items-center justify-between"
                       >
-                        <div className="flex items-center justify-between">
-                          <p className="font-mono text-[11px] text-[#888] truncate flex-1 mr-4 group-hover:text-[#e5e5e5] transition-colors">
+                        <div className="flex-1 min-w-0 mr-4">
+                          <p className="font-mono text-[12px] text-[#888] truncate group-hover:text-[#e5e5e5] transition-colors mb-1">
                             {entry.idea}
                           </p>
-                          <span className="font-mono text-[9px] text-[#444] shrink-0">
+                          <p className="font-sans text-[11px] font-bold text-[#FF4D00]/80 truncate uppercase">
+                            {entry.results.verdict.title}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="block font-mono text-[10px] text-[#444] mb-1">
                             {new Date(entry.timestamp).toLocaleDateString()}
                           </span>
+                          <span className="font-mono text-[9px] px-2 py-0.5 bg-[#1a1a1a] text-[#888] uppercase">
+                            {entry.lang}
+                          </span>
                         </div>
-                        <p className="font-mono text-[9px] text-[#FF4D00]/70 mt-1 truncate">
-                          {entry.results.verdict.title}
-                        </p>
                       </button>
                     ))}
                   </div>
@@ -406,7 +441,6 @@ REQUIREMENTS:
             </motion.div>
           )}
 
-          {/* LOADING STATE */}
           {phase === "loading" && (
             <motion.div
               key="loading"
@@ -416,8 +450,8 @@ REQUIREMENTS:
               className="min-h-screen flex flex-col items-center justify-center px-4 md:px-6"
             >
               <div className="w-full max-w-lg">
-                <div className="mb-8">
-                  <div className="w-full h-[2px] bg-[#1a1a1a] overflow-hidden">
+                <div className="mb-10">
+                  <div className="w-full h-[4px] bg-[#1a1a1a] overflow-hidden">
                     <motion.div
                       className="h-full bg-[#FF4D00]"
                       initial={{ width: "0%" }}
@@ -426,17 +460,16 @@ REQUIREMENTS:
                     />
                   </div>
                 </div>
-
-                <div className="font-mono text-[11px] md:text-[12px] text-[#666] space-y-2">
-                  {loadingLogs.slice(0, logIndex + 1).map((log, i) => (
+                <div className="font-mono text-[12px] md:text-[14px] text-[#666] space-y-3">
+                  {t.loadingLogs.slice(0, logIndex + 1).map((log, i) => (
                     <motion.p
                       key={i}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: i === logIndex ? 1 : 0.4, x: 0 }}
-                      className={i === logIndex ? "text-[#FF4D00]" : ""}
+                      className={i === logIndex ? "text-[#FF4D00] font-bold" : ""}
                     >
                       {log}
-                      {i === logIndex && <span className="animate-pulse">_</span>}
+                      {i === logIndex && <span className="animate-pulse ml-1">█</span>}
                     </motion.p>
                   ))}
                 </div>
@@ -444,181 +477,155 @@ REQUIREMENTS:
             </motion.div>
           )}
 
-          {/* RESULTS STATE */}
           {phase === "results" && results && (
             <motion.div
               key="results"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="min-h-screen px-4 md:px-6 pt-24 pb-20"
+              className="min-h-screen px-4 md:px-6 pt-24"
             >
-              <div className="max-w-4xl mx-auto space-y-8">
+              <div className="max-w-5xl mx-auto space-y-12">
                 
-                {/* A. DOPPELGANGERS FOUND */}
-                <motion.section
-                  variants={sectionVariants}
-                  initial="hidden"
-                  animate="visible"
-                  transition={{ delay: 0.1 }}
-                >
-                  <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
-                    <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    A. DOPPELGANGERS FOUND
-                    <span className="text-[#666]">({results.doppelgangers.length})</span>
+                {/* 1. Market Evaluation */}
+                <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 0.1 }}>
+                  <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
+                    <span className="w-8 h-[4px] bg-[#FF4D00]" />
+                    {t.marketEval}
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                    {results.doppelgangers.map((dp, i) => {
-                      const config = statusConfig[dp.status] || statusConfig.DEAD
+                  <div className="bg-[#050505] border-l-4 border-[#FF4D00] p-6 md:p-8 font-mono text-[13px] md:text-[14px] leading-relaxed text-[#aaa]">
+                    {renderMarkdown(results.marketEvaluation)}
+                  </div>
+                </motion.section>
+
+                {/* 2. Top Matches */}
+                <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 0.3 }}>
+                  <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
+                    <span className="w-8 h-[4px] bg-[#FF4D00]" />
+                    {t.topMatches}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {results.topMatches.map((dp, i) => {
+                      const statusKey = dp.status.toUpperCase() as keyof typeof statusConfig
+                      const config = statusConfig[statusKey] || statusConfig.DEAD
                       return (
                         <motion.div
                           key={i}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.2 + i * 0.1 }}
-                          className="bg-[#0a0a0a] border border-[#FF4D00]/20 p-4 md:p-5 hover:border-[#FF4D00]/50 transition-colors"
+                          transition={{ delay: 0.4 + i * 0.1 }}
+                          className="bg-[#050505] border-2 border-[#1a1a1a] hover:border-[#FF4D00] p-6 transition-colors flex flex-col"
                         >
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-sans font-bold text-base md:text-lg text-[#e5e5e5] truncate">{dp.name}</h4>
-                              <p className="font-mono text-[9px] md:text-[10px] text-[#666]">EST. {dp.founded}</p>
-                            </div>
-                            <div className="text-right ml-3">
-                              <p className="font-mono text-lg md:text-xl font-bold text-[#FF4D00]">{dp.similarity}%</p>
-                              <p className="font-mono text-[8px] md:text-[9px] text-[#666]">MATCH</p>
+                          <div className="flex items-start justify-between mb-6">
+                            <div>
+                              <h4 className="font-sans font-black text-2xl md:text-3xl tracking-tight text-[#e5e5e5] mb-2 uppercase">{dp.name}</h4>
+                              <span className={\`inline-block font-mono text-[10px] md:text-[11px] font-bold tracking-widest border-2 px-3 py-1 \${config.color} \${config.border} \${config.bg}\`}>
+                                {dp.status}
+                              </span>
                             </div>
                           </div>
-                          <div className="w-full h-[2px] bg-[#1a1a1a] mb-3">
-                            <div className="h-full bg-[#FF4D00]" style={{ width: `${dp.similarity}%` }} />
+                          
+                          <div className="space-y-4 flex-1">
+                            <div>
+                              <p className="font-mono text-[9px] text-[#666] tracking-widest uppercase mb-1">INFO</p>
+                              <p className="font-mono text-[13px] text-[#aaa]">{dp.description}</p>
+                            </div>
+                            <div>
+                              <p className="font-mono text-[9px] text-[#666] tracking-widest uppercase mb-1">ANALYSIS</p>
+                              <p className="font-mono text-[13px] text-[#aaa]">{dp.analysis}</p>
+                            </div>
                           </div>
-                          <div className="flex items-center justify-between mb-3">
-                            <span className={`inline-block font-mono text-[8px] md:text-[9px] tracking-wider border px-2 py-1 ${config.color} ${config.border} ${config.bg}`}>
-                              {dp.status}
-                            </span>
-                            <a 
-                              href={`https://www.google.com/search?q=${encodeURIComponent(dp.name + " startup")}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-mono text-[8px] text-[#444] hover:text-[#00d4ff] transition-colors flex items-center gap-1"
-                              title="View source"
-                            >
-                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                <path d="M6 3H3v10h10v-3M9 3h4v4M14 2L7 9" />
-                              </svg>
-                              SRC
-                            </a>
+                          
+                          <div className="mt-6 pt-6 border-t border-[#1a1a1a]">
+                            <p className="font-mono text-[10px] text-[#FF4D00] tracking-widest uppercase mb-2 font-bold">KEY LESSON</p>
+                            <p className="font-sans text-[15px] font-medium text-[#e5e5e5] leading-snug">{dp.keyLesson}</p>
                           </div>
-                          <p className="font-mono text-[10px] md:text-[11px] text-[#888] leading-relaxed">{dp.reason}</p>
                         </motion.div>
                       )
                     })}
                   </div>
                 </motion.section>
 
-                {/* B. THE AUTOPSY */}
-                <motion.section
-                  variants={sectionVariants}
-                  initial="hidden"
-                  animate="visible"
-                  transition={{ delay: 0.4 }}
-                >
-                  <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
-                    <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    B. THE AUTOPSY
-                    <span className="text-[#666]">(Problems &amp; Feedback)</span>
+                {/* 3. Radar Alternatives */}
+                <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 0.5 }}>
+                  <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
+                    <span className="w-8 h-[4px] bg-[#FF4D00]" />
+                    {t.radar}
                   </h3>
-                  <div className="bg-[#0a0a0a] border border-[#FF4D00]/20 p-4 md:p-6 space-y-3">
-                    {results.autopsy.map((item, i) => (
-                      <motion.div 
-                        key={i} 
-                        className="flex gap-3"
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.5 + i * 0.1 }}
-                      >
-                        <span className="font-mono text-[9px] md:text-[10px] text-red-500 shrink-0">[ERR_{String(i + 1).padStart(2, "0")}]</span>
-                        <p className="font-mono text-[11px] md:text-[12px] text-[#888] leading-relaxed">{item}</p>
-                      </motion.div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {results.radarAlternatives.map((alt, i) => (
+                      <div key={i} className="bg-[#050505] border border-[#1a1a1a] p-5">
+                        <p className="font-sans font-bold text-lg text-[#FF4D00] uppercase tracking-tight mb-2">{alt.name}</p>
+                        <p className="font-mono text-[12px] text-[#888] leading-relaxed">{alt.focus}</p>
+                      </div>
                     ))}
                   </div>
                 </motion.section>
 
-                {/* C. OPPORTUNITY MAPPING */}
-                <motion.section
-                  variants={sectionVariants}
-                  initial="hidden"
-                  animate="visible"
-                  transition={{ delay: 0.6 }}
-                >
-                  <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
-                    <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    C. OPPORTUNITY MAPPING
+                {/* 4. The Verdict */}
+                <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 0.7 }}>
+                  <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
+                    <span className="w-8 h-[4px] bg-[#FF4D00]" />
+                    {t.verdict}
                   </h3>
-                  <div className="bg-[#0a0a0a] border border-[#FF4D00]/20 p-4 md:p-6 space-y-3">
-                    {results.opportunities.map((item, i) => (
-                      <motion.div 
-                        key={i} 
-                        className="flex gap-3"
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.7 + i * 0.1 }}
-                      >
-                        <span className="font-mono text-[9px] md:text-[10px] text-green-400 shrink-0">[OPP_{String(i + 1).padStart(2, "0")}]</span>
-                        <p className="font-mono text-[11px] md:text-[12px] text-[#888] leading-relaxed">{item}</p>
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.section>
-
-                {/* D. FINAL VERDICT */}
-                <motion.section
-                  variants={sectionVariants}
-                  initial="hidden"
-                  animate="visible"
-                  transition={{ delay: 0.8 }}
-                >
-                  <h3 className="font-mono text-[10px] md:text-[11px] tracking-[0.2em] text-[#FF4D00] mb-4 flex items-center gap-3">
-                    <span className="w-4 md:w-6 h-[1px] bg-[#FF4D00]" />
-                    D. FINAL VERDICT
-                  </h3>
-                  <div className="border-2 border-[#FF4D00] p-8 md:p-12 text-center relative overflow-hidden bg-[#0a0a0a]">
-                    <div className="absolute inset-0 bg-gradient-to-b from-[#FF4D00]/20 to-transparent" />
+                  <div className="border-4 border-[#FF4D00] p-8 md:p-12 relative bg-[#050505] shadow-[0_0_50px_rgba(255,77,0,0.1)]">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+                      <svg width="120" height="120" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13h-13L12 6.5z"/></svg>
+                    </div>
                     <motion.h2 
-                      className="relative font-sans font-black text-3xl md:text-5xl lg:text-6xl tracking-tight mb-6 text-[#FF4D00]"
-                      initial={{ scale: 0.9, opacity: 0 }}
+                      className="relative font-sans font-black text-4xl md:text-6xl lg:text-7xl tracking-tighter leading-[0.9] mb-8 text-[#e5e5e5] uppercase"
+                      initial={{ scale: 0.95, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 0.5, duration: 0.4 }}
+                      transition={{ delay: 0.9, duration: 0.5 }}
                     >
                       {results.verdict.title}
                     </motion.h2>
-                    <motion.p 
-                      className="relative font-mono text-[11px] md:text-[13px] text-[#888] max-w-2xl mx-auto leading-relaxed"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 1.2 }}
-                    >
-                      {results.verdict.summary}
-                    </motion.p>
+                    <div className="relative font-mono text-[14px] md:text-[16px] text-[#aaa] max-w-3xl leading-relaxed verdict-content">
+                      {renderMarkdown(results.verdict.strategy)}
+                    </div>
                   </div>
                 </motion.section>
 
-                {/* Action Buttons */}
+                {/* 5. Sources */}
+                {results.sources && results.sources.length > 0 && (
+                  <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 0.9 }}>
+                     <h3 className="font-mono text-[11px] tracking-widest text-[#666] mb-4 uppercase">
+                      {t.sources}
+                    </h3>
+                    <div className="flex flex-wrap gap-3">
+                      {results.sources.map((src, i) => (
+                        <a 
+                          key={i} 
+                          href={src.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#FF4D00] hover:text-black text-[#888] font-mono text-[10px] transition-colors"
+                        >
+                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3H3v10h10v-3M9 3h4v4M14 2L7 9"/></svg>
+                          <span className="truncate max-w-[200px]">{src.title}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </motion.section>
+                )}
+
+                {/* Actions */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.4 }}
-                  className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8"
+                  transition={{ delay: 1.1 }}
+                  className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-12 pb-24"
                 >
                   <button
                     onClick={reset}
-                    className="w-full sm:w-auto font-mono text-[10px] md:text-[11px] tracking-[0.15em] border border-[#333] px-8 py-3 hover:border-[#FF4D00] hover:text-[#FF4D00] transition-all"
+                    className="w-full sm:w-auto font-mono text-[11px] font-bold tracking-[0.2em] border-2 border-[#333] px-10 py-4 hover:border-[#FF4D00] hover:text-[#FF4D00] transition-all uppercase"
                   >
-                    [NEW SEARCH]
+                    {t.newSearch}
                   </button>
                   <button
                     onClick={reIterate}
-                    className="w-full sm:w-auto font-mono text-[10px] md:text-[11px] tracking-[0.15em] bg-[#FF4D00] text-[#000] px-8 py-3 hover:bg-[#ff6a33] transition-all font-bold"
+                    className="w-full sm:w-auto font-mono text-[11px] font-bold tracking-[0.2em] bg-[#FF4D00] text-[#000] px-10 py-4 hover:bg-[#fff] transition-all uppercase"
                   >
-                    [RE-ITERATE IDEA]
+                    {t.reiterate}
                   </button>
                 </motion.div>
               </div>

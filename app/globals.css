@@ -126,3 +126,14 @@ body::before {
 .animate-flicker {
   animation: flicker 2s infinite;
 }
+
+.basement-title {
+  text-shadow: 0 0 40px rgba(255, 77, 0, 0.4);
+}
+.verdict-content p {
+  margin-bottom: 1.5rem;
+}
+.verdict-content strong {
+  color: #fff;
+  font-weight: 900;
+}
