@@ -65,7 +65,8 @@ REGLAS ABSOLUTAS:
 - NO INVENTES NOMBRES. Usa Tavily.
 - SE CRUELMENTE TÁCTICO. Evita generalidades como 'buena interfaz'. Ve directo a Distribución y Modelo de Negocio.
 - El campo 'whyTheyFailed' aplica también para empresas activas (sus mayores fricciones).
-- EL FORMATO DEBE SER JSON PERFECTO. Todos los valores de texto DEBEN estar entre comillas dobles. Escapa las comillas internas con barra invertida (\").`
+- EL FORMATO DEBE SER JSON PERFECTO. Todos los valores de texto DEBEN estar entre comillas dobles. Escapa las comillas internas con barra invertida (\").
+- **REGLA DE IDIOMA**: ABSOLUTAMENTE TODOS LOS TEXTOS DENTRO DEL JSON DEBEN ESTAR EN ESPAÑOL (SPANISH). SIN EXCEPCIONES.`
   }
 
   return `You are DOPPELGANGER, a hyper-critical, tactical market intelligence oracle. You are connected to the live web via Tavily MCP.
@@ -122,7 +123,8 @@ ABSOLUTE RULES:
 - DO NOT INVENT NAMES. Use Tavily.
 - BE RUTHLESSLY TACTICAL. Avoid generic 'good UI' points. Go straight to Distribution and Business Model.
 - The 'whyTheyFailed' field applies to active companies too (their biggest frictions).
-- FORMAT MUST BE PERFECT JSON. All text values MUST be enclosed in double quotes. Escape any internal quotes with a backslash (\").`
+- FORMAT MUST BE PERFECT JSON. All text values MUST be enclosed in double quotes. Escape any internal quotes with a backslash (\").
+- **LANGUAGE RULE**: ABSOLUTELY ALL TEXT INSIDE THE JSON MUST BE IN ENGLISH. NO EXCEPTIONS.`
 }
 
 export async function POST(request: Request) {
