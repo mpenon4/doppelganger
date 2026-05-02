@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { InteractiveCanvas } from "@/components/interactive-canvas"
 import { HUDOverlay } from "@/components/hud-overlay"
 
-// Updated Types for v3.5 API
+// Updated Types for v3.6 API
 interface TopMatch {
   name: string
   status: "ACTIVA" | "MUERTA" | "ADQUIRIDA" | "ALIVE" | "DEAD" | "ACQUIRED"
@@ -46,9 +46,11 @@ interface Results {
   mcpConnected?: boolean
 }
 
-interface HistoryNode {
+interface IterationNode {
+  id: number
   idea: string
   results: Results
+  isExpanded: boolean
 }
 
 const statusConfig = {
@@ -83,7 +85,7 @@ const T = {
     sources: "SOURCES (TAVILY MCP)",
     newSearch: "[NEW SEARCH]",
     loadingLogs: [
-      "> Initializing DOPPELGANGER v3.5...",
+      "> Initializing DOPPELGANGER v3.6...",
       "> Connecting to Tavily MCP Server...",
       "> Performing real-time market search...",
       "> Scanning competitor landscape...",
@@ -97,7 +99,8 @@ const T = {
     keyLesson: "KEY LESSON",
     pivotTree: "PIVOT OPTIONS (SELECT TO ITERATE)",
     history: "ITERATION PATH",
-    start: "ORIGINAL IDEA"
+    start: "ORIGINAL IDEA",
+    iterating: "ITERATING..."
   },
   es: {
     subtitle: "LA INTELIGENCIA PARA CONSTRUIR EL FUTURO",
@@ -120,7 +123,7 @@ const T = {
     sources: "FUENTES (TAVILY MCP)",
     newSearch: "[NUEVA BÚSQUEDA]",
     loadingLogs: [
-      "> Inicializando DOPPELGANGER v3.5...",
+      "> Inicializando DOPPELGANGER v3.6...",
       "> Conectando al Servidor MCP de Tavily...",
       "> Realizando búsqueda de mercado en tiempo real...",
       "> Escaneando panorama de competidores...",
@@ -134,15 +137,8 @@ const T = {
     keyLesson: "LECCIÓN CLAVE",
     pivotTree: "OPCIONES DE PIVOTEO (SELECCIONA PARA ITERAR)",
     history: "RUTA DE ITERACIÓN",
-    start: "IDEA ORIGINAL"
-  }
-}
-
-const sectionVariants = {
-  hidden: { opacity: 0, x: -30, filter: "blur(4px)" },
-  visible: { 
-    opacity: 1, x: 0, filter: "blur(0px)",
-    transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }
+    start: "IDEA ORIGINAL",
+    iterating: "ITERANDO..."
   }
 }
 
@@ -161,9 +157,8 @@ export default function DoppelgangerApp() {
   const [idea, setIdea] = useState("")
   const [phase, setPhase] = useState<"idle" | "loading" | "results">("idle")
   const [logIndex, setLogIndex] = useState(0)
-  const [results, setResults] = useState<Results | null>(null)
+  const [iterations, setIterations] = useState<IterationNode[]>([])
   const [error, setError] = useState("")
-  const [history, setHistory] = useState<HistoryNode[]>([])
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -185,16 +180,12 @@ export default function DoppelgangerApp() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [idea, phase])
 
-  async function handleSubmit(overrideIdea?: string) {
+  async function handleSubmit(overrideIdea?: string, pivotDisplayTitle?: string) {
     const currentIdea = overrideIdea || idea
-    if (!currentIdea.trim() || phase !== "idle") return
+    if (!currentIdea.trim() || phase === "loading") return
     
-    // Push current state to history if we are pivoting
-    if (results && overrideIdea) {
-      setHistory(prev => [...prev, { idea: idea, results }])
-    }
-
-    setIdea(currentIdea)
+    // Auto-collapse all existing iterations when starting a new one
+    setIterations(prev => prev.map(it => ({ ...it, isExpanded: false })))
     setPhase("loading")
     setError("")
     setLogIndex(0)
@@ -220,33 +211,39 @@ export default function DoppelgangerApp() {
       }
       
       await new Promise((r) => setTimeout(r, 600))
-      setResults(data)
+      
+      // The text to display in the header (v0 uses the text input, v1+ uses the pivot title)
+      const displayIdea = pivotDisplayTitle || currentIdea
+
+      setIterations(prev => [
+        ...prev,
+        {
+          id: prev.length,
+          idea: displayIdea,
+          results: data,
+          isExpanded: true
+        }
+      ])
+      
+      // Once we have iterations, we stay in "results" phase (even if loading a new iteration, we show the accordion + a loader at the bottom)
       setPhase("results")
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed")
-      setPhase("idle")
+      setPhase(iterations.length > 0 ? "results" : "idle")
     }
+  }
+
+  function toggleIteration(id: number) {
+    setIterations(prev => prev.map(it => 
+      it.id === id ? { ...it, isExpanded: !it.isExpanded } : it
+    ))
   }
 
   function reset() {
     setPhase("idle")
-    setResults(null)
+    setIterations([])
     setIdea("")
     setError("")
-    setHistory([])
-  }
-
-  function loadHistoryState(index: number) {
-    if (index === -1) return // Do nothing if trying to load current state
-
-    // Slice history array
-    const newHistory = history.slice(0, index)
-    const targetState = history[index]
-    
-    setHistory(newHistory)
-    setIdea(targetState.idea)
-    setResults(targetState.results)
-    setPhase("results")
   }
 
   return (
@@ -274,13 +271,13 @@ export default function DoppelgangerApp() {
               ES
             </button>
           </div>
-          <span className="hidden md:inline font-mono text-[8px] md:text-[9px] text-[#333] tracking-wider">v3.5_MCP</span>
+          <span className="hidden md:inline font-mono text-[8px] md:text-[9px] text-[#333] tracking-wider">v3.6_MCP</span>
         </div>
       </header>
 
       <main className="relative min-h-screen pb-32">
         <AnimatePresence mode="wait">
-          {phase === "idle" && (
+          {phase === "idle" && iterations.length === 0 && (
             <motion.div
               key="hero"
               initial={{ opacity: 0 }}
@@ -353,9 +350,9 @@ export default function DoppelgangerApp() {
             </motion.div>
           )}
 
-          {phase === "loading" && (
+          {phase === "loading" && iterations.length === 0 && (
             <motion.div
-              key="loading"
+              key="loading-initial"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -389,229 +386,255 @@ export default function DoppelgangerApp() {
             </motion.div>
           )}
 
-          {phase === "results" && results && (
+          {iterations.length > 0 && (
             <motion.div
-              key="results"
+              key="timeline"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="min-h-screen px-4 md:px-6 pt-24"
+              className="min-h-screen px-4 md:px-6 pt-24 max-w-5xl mx-auto flex flex-col gap-8"
             >
-              <div className="max-w-5xl mx-auto space-y-12">
+              {iterations.map((iteration) => (
+                <div key={iteration.id} className="relative">
+                  {/* Connective Line between nodes */}
+                  {iteration.id > 0 && (
+                    <div className="absolute -top-8 left-6 w-[2px] h-8 bg-[#FF4D00]/30" />
+                  )}
 
-                {/* History Breadcrumbs */}
-                {history.length > 0 && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-wrap items-center gap-2 text-sm font-mono bg-[#050505] p-4 border border-[#1a1a1a]">
-                    <span className="text-[#666]">{t.history}: </span>
-                    {history.map((h, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <button 
-                          onClick={() => loadHistoryState(i)}
-                          className="text-[#888] hover:text-[#FF4D00] transition-colors truncate max-w-[150px]"
-                          title={h.idea}
-                        >
-                          {i === 0 ? t.start : `Pivot ${i}`}
-                        </button>
-                        <span className="text-[#333]">&gt;</span>
-                      </div>
-                    ))}
-                    <span className="text-[#e5e5e5] border-b border-[#FF4D00]">Current</span>
-                  </motion.div>
-                )}
-                
-                {/* 1. Market Evaluation */}
-                <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 0.1 }}>
-                  <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
-                    <span className="w-8 h-[4px] bg-[#FF4D00]" />
-                    {t.marketEval}
-                  </h3>
-                  <div className="bg-[#050505] border-l-4 border-[#FF4D00] p-6 md:p-8 font-mono text-[13px] md:text-[14px] leading-relaxed text-[#aaa]">
-                    {renderMarkdown(results.marketEvaluation)}
-                  </div>
-                </motion.section>
-
-                {/* 2. Top Matches (Deep Analysis) */}
-                <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 0.3 }}>
-                  <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
-                    <span className="w-8 h-[4px] bg-[#FF4D00]" />
-                    {t.topMatches}
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {results.topMatches.map((dp, i) => {
-                      const statusKey = dp.status.toUpperCase() as keyof typeof statusConfig
-                      const config = statusConfig[statusKey] || statusConfig.DEAD
-                      return (
-                        <motion.div
-                          key={i}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.4 + i * 0.1 }}
-                          className="bg-[#050505] border-2 border-[#1a1a1a] hover:border-[#FF4D00] p-6 transition-colors flex flex-col"
-                        >
-                          <div className="flex items-start justify-between mb-6 border-b border-[#1a1a1a] pb-4">
-                            <div>
-                              <h4 className="font-sans font-black text-2xl md:text-3xl tracking-tight text-[#e5e5e5] mb-2 uppercase">{dp.name}</h4>
-                              <span className={`inline-block font-mono text-[10px] md:text-[11px] font-bold tracking-widest border-2 px-3 py-1 ${config.color} ${config.border} ${config.bg}`}>
-                                {dp.status}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-6 flex-1">
-                            <div>
-                              <p className="font-mono text-[13px] text-[#aaa]">{dp.description}</p>
-                            </div>
-
-                            {/* Why They Failed / Frictions */}
-                            {dp.whyTheyFailed && dp.whyTheyFailed.length > 0 && (
-                              <div className="bg-[#1a0a0a] border border-red-900/30 p-4">
-                                <p className="font-mono text-[10px] text-red-400 tracking-widest uppercase mb-3 font-bold flex items-center gap-2">
-                                  <span className="w-2 h-2 bg-red-500 rounded-full" />
-                                  {t.whyFailed}
-                                </p>
-                                <ul className="list-disc pl-4 space-y-2">
-                                  {dp.whyTheyFailed.map((reason, idx) => (
-                                    <li key={idx} className="font-mono text-[12px] text-[#ccc] leading-relaxed">{reason}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* What They Did Right */}
-                            {dp.whatTheyDidRight && dp.whatTheyDidRight.length > 0 && (
-                              <div className="bg-[#0a1a0a] border border-green-900/30 p-4">
-                                <p className="font-mono text-[10px] text-green-400 tracking-widest uppercase mb-3 font-bold flex items-center gap-2">
-                                  <span className="w-2 h-2 bg-green-500 rounded-full" />
-                                  {t.whatRight}
-                                </p>
-                                <ul className="list-disc pl-4 space-y-2">
-                                  {dp.whatTheyDidRight.map((win, idx) => (
-                                    <li key={idx} className="font-mono text-[12px] text-[#ccc] leading-relaxed">{win}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            {/* Unit Economics */}
-                            {dp.unitEconomics && (
-                              <div>
-                                <p className="font-mono text-[9px] text-[#666] tracking-widest uppercase mb-1">{t.unitEcon}</p>
-                                <p className="font-mono text-[13px] text-[#aaa] border-l-2 border-[#333] pl-3 py-1">{dp.unitEconomics}</p>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="mt-6 pt-6 border-t border-[#1a1a1a]">
-                            <p className="font-mono text-[10px] text-[#FF4D00] tracking-widest uppercase mb-2 font-bold">{t.keyLesson}</p>
-                            <p className="font-sans text-[15px] font-medium text-[#e5e5e5] leading-snug">{dp.keyLesson}</p>
-                          </div>
-                        </motion.div>
-                      )
-                    })}
-                  </div>
-                </motion.section>
-
-                {/* 3. Radar Alternatives */}
-                <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 0.5 }}>
-                  <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
-                    <span className="w-8 h-[4px] bg-[#FF4D00]" />
-                    {t.radar}
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {results.radarAlternatives.map((alt, i) => (
-                      <div key={i} className="bg-[#050505] border border-[#1a1a1a] p-5">
-                        <p className="font-sans font-bold text-lg text-[#FF4D00] uppercase tracking-tight mb-2">{alt.name}</p>
-                        <p className="font-mono text-[12px] text-[#888] leading-relaxed">{alt.focus}</p>
-                      </div>
-                    ))}
-                  </div>
-                </motion.section>
-
-                {/* 4. The Verdict */}
-                <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 0.7 }}>
-                  <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
-                    <span className="w-8 h-[4px] bg-[#FF4D00]" />
-                    {t.verdict}
-                  </h3>
-                  <div className="border-4 border-[#FF4D00] p-8 md:p-12 relative bg-[#050505] shadow-[0_0_50px_rgba(255,77,0,0.1)]">
-                    <motion.h2 
-                      className="relative font-sans font-black text-4xl md:text-6xl lg:text-7xl tracking-tighter leading-[0.9] mb-8 text-[#e5e5e5] uppercase"
-                      initial={{ scale: 0.95, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 0.9, duration: 0.5 }}
-                    >
-                      {results.verdict.title}
-                    </motion.h2>
-                    <div className="relative font-mono text-[14px] md:text-[16px] text-[#aaa] max-w-3xl leading-relaxed verdict-content">
-                      {renderMarkdown(results.verdict.strategy)}
-                    </div>
-                  </div>
-                </motion.section>
-
-                {/* 5. Pivot Options (Branching) */}
-                {results.pivotOptions && results.pivotOptions.length > 0 && (
-                  <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 0.9 }}>
-                    <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
-                      <span className="w-8 h-[4px] bg-[#FF4D00]" />
-                      {t.pivotTree}
-                    </h3>
-                    <div className="flex flex-col gap-4">
-                      {results.pivotOptions.map((pivot, i) => (
-                        <button
-                          key={i}
-                          onClick={() => {
-                            const newIdea = `Idea original: ${idea}\n\nPivote Seleccionado: ${pivot.title} - ${pivot.description}`
-                            handleSubmit(newIdea)
-                          }}
-                          className="group relative bg-[#050505] border-2 border-[#1a1a1a] hover:border-[#FF4D00] p-6 text-left transition-all hover:pl-8 overflow-hidden"
-                        >
-                          <div className="absolute inset-y-0 left-0 w-2 bg-[#FF4D00] transform -translate-x-full group-hover:translate-x-0 transition-transform" />
-                          <h4 className="font-sans font-black text-xl md:text-2xl text-[#e5e5e5] mb-2 uppercase tracking-tight group-hover:text-[#FF4D00] transition-colors">{pivot.title}</h4>
-                          <p className="font-mono text-[13px] text-[#888] leading-relaxed">{pivot.description}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </motion.section>
-                )}
-
-                {/* 6. Sources */}
-                {results.sources && results.sources.length > 0 && (
-                  <motion.section variants={sectionVariants} initial="hidden" animate="visible" transition={{ delay: 1.1 }}>
-                     <h3 className="font-mono text-[11px] tracking-widest text-[#666] mb-4 uppercase">
-                      {t.sources}
-                    </h3>
-                    <div className="flex flex-wrap gap-3">
-                      {results.sources.map((src, i) => (
-                        <a 
-                          key={i} 
-                          href={src.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#FF4D00] hover:text-black text-[#888] font-mono text-[10px] transition-colors"
-                        >
-                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3H3v10h10v-3M9 3h4v4M14 2L7 9"/></svg>
-                          <span className="truncate max-w-[200px]">{src.title}</span>
-                        </a>
-                      ))}
-                    </div>
-                  </motion.section>
-                )}
-
-                {/* Actions */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.2 }}
-                  className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-12 pb-24 border-t border-[#1a1a1a] mt-12"
-                >
-                  <button
-                    onClick={reset}
-                    className="w-full sm:w-auto font-mono text-[11px] font-bold tracking-[0.2em] border-2 border-[#333] px-10 py-4 hover:border-[#FF4D00] hover:text-[#FF4D00] transition-all uppercase"
+                  {/* Accordion Header */}
+                  <button 
+                    onClick={() => toggleIteration(iteration.id)}
+                    className={`w-full flex items-center justify-between p-4 md:p-6 border-2 transition-all ${iteration.isExpanded ? 'bg-[#050505] border-[#FF4D00]' : 'bg-[#000] border-[#1a1a1a] hover:border-[#333]'}`}
                   >
-                    {t.newSearch}
+                    <div className="flex items-center gap-4 text-left overflow-hidden">
+                      <span className="font-sans text-xl md:text-3xl font-black text-[#FF4D00] shrink-0">
+                        v{iteration.id}
+                      </span>
+                      <span className={`font-mono text-[12px] md:text-[14px] truncate ${iteration.isExpanded ? 'text-[#e5e5e5]' : 'text-[#666]'}`}>
+                        {iteration.idea}
+                      </span>
+                    </div>
+                    <span className="shrink-0 ml-4 font-mono text-[10px] text-[#666]">
+                      {iteration.isExpanded ? '[-]' : '[+]'}
+                    </span>
                   </button>
-                </motion.div>
 
-              </div>
+                  {/* Accordion Content */}
+                  <AnimatePresence>
+                    {iteration.isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="pt-8 md:pt-12 pb-4 space-y-12">
+                          
+                          {/* 1. Market Evaluation */}
+                          <section>
+                            <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
+                              <span className="w-8 h-[4px] bg-[#FF4D00]" />
+                              {t.marketEval}
+                            </h3>
+                            <div className="bg-[#050505] border-l-4 border-[#FF4D00] p-6 md:p-8 font-mono text-[13px] md:text-[14px] leading-relaxed text-[#aaa]">
+                              {renderMarkdown(iteration.results.marketEvaluation)}
+                            </div>
+                          </section>
+
+                          {/* 2. Top Matches */}
+                          <section>
+                            <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
+                              <span className="w-8 h-[4px] bg-[#FF4D00]" />
+                              {t.topMatches}
+                            </h3>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                              {iteration.results.topMatches.map((dp, i) => {
+                                const statusKey = dp.status.toUpperCase() as keyof typeof statusConfig
+                                const config = statusConfig[statusKey] || statusConfig.DEAD
+                                return (
+                                  <div key={i} className="bg-[#050505] border-2 border-[#1a1a1a] hover:border-[#FF4D00] p-6 transition-colors flex flex-col">
+                                    <div className="flex items-start justify-between mb-6 border-b border-[#1a1a1a] pb-4">
+                                      <div>
+                                        <h4 className="font-sans font-black text-2xl md:text-3xl tracking-tight text-[#e5e5e5] mb-2 uppercase break-words">{dp.name}</h4>
+                                        <span className={`inline-block font-mono text-[10px] md:text-[11px] font-bold tracking-widest border-2 px-3 py-1 ${config.color} ${config.border} ${config.bg}`}>
+                                          {dp.status}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="space-y-6 flex-1">
+                                      <div>
+                                        <p className="font-mono text-[13px] text-[#aaa]">{dp.description}</p>
+                                      </div>
+
+                                      {/* Why They Failed / Frictions */}
+                                      {dp.whyTheyFailed && dp.whyTheyFailed.length > 0 && (
+                                        <div className="bg-[#1a0a0a] border border-red-900/30 p-4">
+                                          <p className="font-mono text-[10px] text-red-400 tracking-widest uppercase mb-3 font-bold flex items-center gap-2">
+                                            <span className="w-2 h-2 bg-red-500 rounded-full" />
+                                            {t.whyFailed}
+                                          </p>
+                                          <ul className="list-disc pl-4 space-y-2">
+                                            {dp.whyTheyFailed.map((reason, idx) => (
+                                              <li key={idx} className="font-mono text-[12px] text-[#ccc] leading-relaxed break-words">{reason}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+
+                                      {/* What They Did Right */}
+                                      {dp.whatTheyDidRight && dp.whatTheyDidRight.length > 0 && (
+                                        <div className="bg-[#0a1a0a] border border-green-900/30 p-4">
+                                          <p className="font-mono text-[10px] text-green-400 tracking-widest uppercase mb-3 font-bold flex items-center gap-2">
+                                            <span className="w-2 h-2 bg-green-500 rounded-full" />
+                                            {t.whatRight}
+                                          </p>
+                                          <ul className="list-disc pl-4 space-y-2">
+                                            {dp.whatTheyDidRight.map((win, idx) => (
+                                              <li key={idx} className="font-mono text-[12px] text-[#ccc] leading-relaxed break-words">{win}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+
+                                      {/* Unit Economics */}
+                                      {dp.unitEconomics && (
+                                        <div>
+                                          <p className="font-mono text-[9px] text-[#666] tracking-widest uppercase mb-1">{t.unitEcon}</p>
+                                          <p className="font-mono text-[13px] text-[#aaa] border-l-2 border-[#333] pl-3 py-1 break-words">{dp.unitEconomics}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="mt-6 pt-6 border-t border-[#1a1a1a]">
+                                      <p className="font-mono text-[10px] text-[#FF4D00] tracking-widest uppercase mb-2 font-bold">{t.keyLesson}</p>
+                                      <p className="font-sans text-[14px] md:text-[15px] font-medium text-[#e5e5e5] leading-snug break-words">{dp.keyLesson}</p>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </section>
+
+                          {/* 3. Radar Alternatives */}
+                          {iteration.results.radarAlternatives && iteration.results.radarAlternatives.length > 0 && (
+                            <section>
+                              <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
+                                <span className="w-8 h-[4px] bg-[#FF4D00]" />
+                                {t.radar}
+                              </h3>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                {iteration.results.radarAlternatives.map((alt, i) => (
+                                  <div key={i} className="bg-[#050505] border border-[#1a1a1a] p-5">
+                                    <p className="font-sans font-bold text-lg text-[#FF4D00] uppercase tracking-tight mb-2 break-words">{alt.name}</p>
+                                    <p className="font-mono text-[12px] text-[#888] leading-relaxed break-words">{alt.focus}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+                          )}
+
+                          {/* 4. The Verdict */}
+                          <section>
+                            <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
+                              <span className="w-8 h-[4px] bg-[#FF4D00]" />
+                              {t.verdict}
+                            </h3>
+                            <div className="border-4 border-[#FF4D00] p-6 md:p-12 relative bg-[#050505] shadow-[0_0_50px_rgba(255,77,0,0.1)]">
+                              <h2 className="relative font-sans font-black text-3xl md:text-5xl lg:text-7xl tracking-tighter leading-[0.9] mb-8 text-[#e5e5e5] uppercase break-words">
+                                {iteration.results.verdict.title}
+                              </h2>
+                              <div className="relative font-mono text-[14px] md:text-[16px] text-[#aaa] max-w-3xl leading-relaxed verdict-content">
+                                {renderMarkdown(iteration.results.verdict.strategy)}
+                              </div>
+                            </div>
+                          </section>
+
+                          {/* 5. Pivot Options (Branching) */}
+                          {iteration.results.pivotOptions && iteration.results.pivotOptions.length > 0 && (
+                            <section>
+                              <h3 className="font-sans text-xl md:text-2xl font-black tracking-tighter text-[#e5e5e5] mb-6 flex items-center gap-4 uppercase">
+                                <span className="w-8 h-[4px] bg-[#FF4D00]" />
+                                {t.pivotTree}
+                              </h3>
+                              <div className="flex flex-col gap-4">
+                                {iteration.results.pivotOptions.map((pivot, i) => (
+                                  <button
+                                    key={i}
+                                    onClick={() => {
+                                      // Get the original idea from the first iteration or the text area
+                                      const baseIdea = iterations[0]?.idea || idea
+                                      const newIdea = `Idea Original: ${baseIdea}\n\nPivote Seleccionado: ${pivot.title} - ${pivot.description}`
+                                      handleSubmit(newIdea, pivot.title)
+                                    }}
+                                    className="group relative bg-[#050505] border-2 border-[#1a1a1a] hover:border-[#FF4D00] p-5 md:p-6 text-left transition-all hover:pl-6 md:hover:pl-8 overflow-hidden flex flex-col items-start w-full"
+                                  >
+                                    <div className="absolute inset-y-0 left-0 w-2 bg-[#FF4D00] transform -translate-x-full group-hover:translate-x-0 transition-transform" />
+                                    <h4 className="font-sans font-black text-xl md:text-2xl text-[#e5e5e5] mb-2 uppercase tracking-tight group-hover:text-[#FF4D00] transition-colors break-words w-full">{pivot.title}</h4>
+                                    <p className="font-mono text-[12px] md:text-[13px] text-[#888] leading-relaxed break-words w-full">{pivot.description}</p>
+                                  </button>
+                                ))}
+                              </div>
+                            </section>
+                          )}
+
+                          {/* 6. Sources */}
+                          {iteration.results.sources && iteration.results.sources.length > 0 && (
+                            <section>
+                               <h3 className="font-mono text-[11px] tracking-widest text-[#666] mb-4 uppercase">
+                                {t.sources}
+                              </h3>
+                              <div className="flex flex-wrap gap-2 md:gap-3">
+                                {iteration.results.sources.map((src, i) => (
+                                  <a 
+                                    key={i} 
+                                    href={src.url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#FF4D00] hover:text-black text-[#888] font-mono text-[9px] md:text-[10px] transition-colors max-w-full"
+                                  >
+                                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0"><path d="M6 3H3v10h10v-3M9 3h4v4M14 2L7 9"/></svg>
+                                    <span className="truncate max-w-[150px] md:max-w-[200px]">{src.title}</span>
+                                  </a>
+                                ))}
+                              </div>
+                            </section>
+                          )}
+
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ))}
+
+              {/* Loading state when fetching a new iteration from a pivot */}
+              {phase === "loading" && iterations.length > 0 && (
+                <div className="relative pt-8">
+                  <div className="absolute -top-8 left-6 w-[2px] h-8 bg-[#FF4D00]/30 animate-pulse" />
+                  <div className="w-full flex items-center p-4 md:p-6 border-2 border-[#1a1a1a] bg-[#000] border-dashed">
+                    <span className="font-sans text-xl md:text-3xl font-black text-[#666] shrink-0 mr-4">
+                      v{iterations.length}
+                    </span>
+                    <span className="font-mono text-[12px] md:text-[14px] text-[#FF4D00] animate-pulse">
+                      {t.iterating}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* End Action (Reset) */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex justify-center pt-12 pb-24 border-t border-[#1a1a1a] mt-4"
+              >
+                <button
+                  onClick={reset}
+                  className="w-full sm:w-auto font-mono text-[11px] font-bold tracking-[0.2em] border-2 border-[#333] px-10 py-4 hover:border-[#FF4D00] hover:text-[#FF4D00] transition-all uppercase"
+                >
+                  {t.newSearch}
+                </button>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
