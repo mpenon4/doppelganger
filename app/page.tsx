@@ -78,9 +78,9 @@ const statusConfig = {
 const T = {
   en: {
     subtitle: "THE INTELLIGENCE TO BUILD WHAT'S NEXT",
-    title1: "BUILD DIFFERENT.",
-    title2: "BECAUSE THEY DIDN'T.",
-    desc: "Validate your startup idea. Discover the state of play, learn from mistakes, and build what others missed.",
+    title1: "MAP YOUR MARKET.",
+    title2: "EVOLVE YOUR IDEA.",
+    desc: "Doppelganger is your AI market intelligence analyst. Discover real competitors, uncover friction points, and iteratively pivot to find the perfect Go-to-Market strategy.",
     stats: [
       { value: "12,847", label: "Active Startups" },
       { value: "86%", label: "Fail Due to Avoidable Errors" },
@@ -130,9 +130,9 @@ const T = {
   },
   es: {
     subtitle: "LA INTELIGENCIA PARA CONSTRUIR EL FUTURO",
-    title1: "CONSTRUYE DIFERENTE.",
-    title2: "PORQUE ELLOS NO LO HICIERON.",
-    desc: "Valida tu idea de startup. Descubre el estado del arte, aprende de los errores y construye lo que otros pasaron por alto.",
+    title1: "MAPEA TU MERCADO.",
+    title2: "EVOLUCIONA TU IDEA.",
+    desc: "Doppelganger es tu analista de inteligencia de mercado. Descubre a tus competidores reales, detecta fricciones en la industria, y pivota iterativamente para encontrar la estrategia perfecta.",
     stats: [
       { value: "12,847", label: "Startups Activas" },
       { value: "86%", label: "Fallan por Errores Evitables" },
