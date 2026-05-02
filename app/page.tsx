@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { InteractiveCanvas } from "@/components/interactive-canvas"
 import { HUDOverlay } from "@/components/hud-overlay"
 
-// Updated Types for v4.0 API
+// Updated Types for v4.1 API
 interface TopMatch {
   name: string
   status: "ACTIVA" | "MUERTA" | "ADQUIRIDA" | "ALIVE" | "DEAD" | "ACQUIRED"
@@ -97,7 +97,7 @@ const T = {
     sources: "SOURCES (TAVILY MCP)",
     newSearch: "[NEW SEARCH]",
     loadingLogs: [
-      "> Initializing DOPPELGANGER v4.0...",
+      "> Initializing DOPPELGANGER v4.1...",
       "> Connecting to Tavily MCP Server...",
       "> Performing real-time market search...",
       "> Scanning competitor landscape...",
@@ -118,6 +118,9 @@ const T = {
     keepThisIdea: "I'LL KEEP THIS IDEA (GENERATE REPORT)",
     generatingReport: "Generating final report...",
     exportPdf: "EXPORT TO PDF",
+    printAll: "PRINT ALL",
+    printSwot: "PRINT SWOT ONLY",
+    printGtm: "PRINT GTM ONLY",
     closeReport: "CLOSE",
     reportTitle: "DOPPELGANGER EXECUTIVE REPORT",
     swotAnalysis: "SWOT ANALYSIS",
@@ -149,7 +152,7 @@ const T = {
     sources: "FUENTES (TAVILY MCP)",
     newSearch: "[NUEVA BÚSQUEDA]",
     loadingLogs: [
-      "> Inicializando DOPPELGANGER v4.0...",
+      "> Inicializando DOPPELGANGER v4.1...",
       "> Conectando al Servidor MCP de Tavily...",
       "> Realizando búsqueda de mercado en tiempo real...",
       "> Escaneando panorama de competidores...",
@@ -170,6 +173,9 @@ const T = {
     keepThisIdea: "ME QUEDO CON ESTA IDEA (GENERAR REPORTE)",
     generatingReport: "Generando reporte final...",
     exportPdf: "EXPORTAR A PDF",
+    printAll: "IMPRIMIR COMPLETO",
+    printSwot: "IMPRIMIR SOLO FODA",
+    printGtm: "IMPRIMIR SOLO GTM",
     closeReport: "CERRAR",
     reportTitle: "REPORTE EJECUTIVO DOPPELGANGER",
     swotAnalysis: "ANÁLISIS FODA",
@@ -205,6 +211,7 @@ export default function DoppelgangerApp() {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [reportData, setReportData] = useState<FinalReport | null>(null)
   const [showReportModal, setShowReportModal] = useState(false)
+  const [printMode, setPrintMode] = useState<"all" | "swot" | "gtm">("all")
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -322,6 +329,7 @@ export default function DoppelgangerApp() {
     setError("")
     setReportData(null)
     setShowReportModal(false)
+    setPrintMode("all")
   }
 
   return (
@@ -352,7 +360,7 @@ export default function DoppelgangerApp() {
                 ES
               </button>
             </div>
-            <span className="hidden md:inline font-mono text-[8px] md:text-[9px] text-[#333] tracking-wider">v4.0_MCP</span>
+            <span className="hidden md:inline font-mono text-[8px] md:text-[9px] text-[#333] tracking-wider">v4.1_DEEP_MCP</span>
           </div>
         </header>
 
@@ -761,66 +769,80 @@ export default function DoppelgangerApp() {
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 100 }}
-            className="fixed inset-0 z-[100] bg-white text-black overflow-y-auto print:block"
+            className="fixed inset-0 z-[100] bg-white text-black overflow-y-auto print:static print:inset-auto print:h-auto print:overflow-visible print:bg-white"
           >
             {/* Modal Actions (Hidden on Print) */}
-            <div className="sticky top-0 bg-white/90 backdrop-blur-md border-b border-gray-200 p-4 flex justify-between items-center z-10 print:hidden">
+            <div className="sticky top-0 bg-white/90 backdrop-blur-md border-b border-gray-200 p-4 flex justify-between items-center z-10 print:hidden shadow-sm">
               <button 
                 onClick={() => setShowReportModal(false)}
-                className="font-mono text-sm px-4 py-2 border border-gray-300 hover:bg-gray-100"
+                className="font-mono text-sm px-4 py-2 border border-gray-300 hover:bg-gray-100 font-bold"
               >
                 {t.closeReport}
               </button>
-              <button 
-                onClick={() => window.print()}
-                className="font-mono text-sm px-6 py-2 bg-black text-white hover:bg-[#FF4D00]"
-              >
-                {t.exportPdf}
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => { setPrintMode("all"); setTimeout(() => window.print(), 100); }}
+                  className="font-mono text-sm px-4 py-2 bg-[#FF4D00] text-black font-bold hover:bg-black hover:text-white transition-colors border border-transparent"
+                >
+                  {t.printAll}
+                </button>
+                <button 
+                  onClick={() => { setPrintMode("swot"); setTimeout(() => window.print(), 100); }}
+                  className="font-mono text-sm px-4 py-2 bg-black text-white font-bold hover:bg-[#FF4D00] hover:text-black transition-colors"
+                >
+                  {t.printSwot}
+                </button>
+                <button 
+                  onClick={() => { setPrintMode("gtm"); setTimeout(() => window.print(), 100); }}
+                  className="font-mono text-sm px-4 py-2 bg-black text-white font-bold hover:bg-[#FF4D00] hover:text-black transition-colors"
+                >
+                  {t.printGtm}
+                </button>
+              </div>
             </div>
 
             {/* Print Document Content */}
             <div className="max-w-4xl mx-auto p-8 md:p-16 font-sans">
               
-              <div className="border-b-4 border-black pb-8 mb-8">
+              <div className="border-b-4 border-black pb-8 mb-8 break-inside-avoid">
                 <h1 className="font-black text-5xl md:text-7xl uppercase tracking-tighter mb-4">{t.reportTitle}</h1>
                 <div className="flex justify-between items-end font-mono text-gray-500 text-sm">
                   <span>GENERATED: {new Date().toLocaleDateString()}</span>
-                  <span>v4.0_MCP</span>
+                  <span>v4.1_DEEP_MCP</span>
                 </div>
               </div>
 
-              <div className="mb-12">
+              <div className="mb-12 break-inside-avoid">
                 <p className="text-xl md:text-2xl leading-relaxed font-medium">{reportData.executiveSummary}</p>
               </div>
 
               {/* SWOT */}
-              <div className="mb-16">
-                <h2 className="text-3xl font-black uppercase mb-6 border-b-2 border-black pb-2">{t.swotAnalysis}</h2>
+              <div className={`mb-16 ${printMode === 'gtm' ? 'print:hidden' : ''}`}>
+                <h2 className="text-3xl font-black uppercase mb-6 border-b-2 border-black pb-2 break-after-avoid">{t.swotAnalysis}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Strengths */}
-                  <div className="bg-gray-50 p-6 border-l-4 border-green-500">
+                  <div className="bg-gray-50 p-6 border-l-4 border-green-500 break-inside-avoid">
                     <h3 className="font-black text-xl uppercase mb-4 text-green-700">{t.strengths}</h3>
                     <ul className="list-disc pl-5 space-y-2">
                       {reportData.swot.strengths.map((s, i) => <li key={i}>{s}</li>)}
                     </ul>
                   </div>
                   {/* Weaknesses */}
-                  <div className="bg-gray-50 p-6 border-l-4 border-orange-500">
+                  <div className="bg-gray-50 p-6 border-l-4 border-orange-500 break-inside-avoid">
                     <h3 className="font-black text-xl uppercase mb-4 text-orange-700">{t.weaknesses}</h3>
                     <ul className="list-disc pl-5 space-y-2">
                       {reportData.swot.weaknesses.map((s, i) => <li key={i}>{s}</li>)}
                     </ul>
                   </div>
                   {/* Opportunities */}
-                  <div className="bg-gray-50 p-6 border-l-4 border-blue-500">
+                  <div className="bg-gray-50 p-6 border-l-4 border-blue-500 break-inside-avoid">
                     <h3 className="font-black text-xl uppercase mb-4 text-blue-700">{t.opportunities}</h3>
                     <ul className="list-disc pl-5 space-y-2">
                       {reportData.swot.opportunities.map((s, i) => <li key={i}>{s}</li>)}
                     </ul>
                   </div>
                   {/* Threats */}
-                  <div className="bg-gray-50 p-6 border-l-4 border-red-500">
+                  <div className="bg-gray-50 p-6 border-l-4 border-red-500 break-inside-avoid">
                     <h3 className="font-black text-xl uppercase mb-4 text-red-700">{t.threats}</h3>
                     <ul className="list-disc pl-5 space-y-2">
                       {reportData.swot.threats.map((s, i) => <li key={i}>{s}</li>)}
@@ -830,11 +852,11 @@ export default function DoppelgangerApp() {
               </div>
 
               {/* Attack Plan */}
-              <div className="mb-16">
-                <h2 className="text-3xl font-black uppercase mb-6 border-b-2 border-black pb-2">{t.attackPlan}</h2>
+              <div className={`mb-16 ${printMode === 'swot' ? 'print:hidden' : ''}`}>
+                <h2 className="text-3xl font-black uppercase mb-6 border-b-2 border-black pb-2 break-after-avoid">{t.attackPlan}</h2>
                 <div className="space-y-6">
                   {reportData.attackPlan.map((step, i) => (
-                    <div key={i} className="flex gap-6 items-start">
+                    <div key={i} className="flex gap-6 items-start break-inside-avoid">
                       <div className="text-4xl font-black text-gray-300">0{i + 1}</div>
                       <div>
                         <h3 className="text-xl font-bold uppercase mb-2">{step.phase}</h3>
@@ -846,8 +868,8 @@ export default function DoppelgangerApp() {
               </div>
 
               {/* Final Advice */}
-              <div className="bg-black text-white p-8 md:p-12">
-                <h2 className="text-2xl font-black uppercase mb-4 text-[#FF4D00]">{t.finalAdvice}</h2>
+              <div className="bg-black text-white p-8 md:p-12 break-inside-avoid print:border-4 print:border-black print:text-black print:bg-white print:break-inside-avoid">
+                <h2 className="text-2xl font-black uppercase mb-4 text-[#FF4D00] print:text-black">{t.finalAdvice}</h2>
                 <p className="text-xl md:text-2xl leading-relaxed italic">{reportData.finalAdvice}</p>
               </div>
 

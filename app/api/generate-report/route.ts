@@ -1,5 +1,6 @@
 import { generateText, stepCountIs } from 'ai'
 import { createGroq } from '@ai-sdk/groq'
+import { createMCPClient } from '@ai-sdk/mcp'
 
 export const maxDuration = 60
 
@@ -78,6 +79,8 @@ RULES:
 }
 
 export async function POST(request: Request) {
+  let mcpClient: Awaited<ReturnType<typeof createMCPClient>> | null = null
+
   try {
     const { idea, lang = 'en' } = await request.json()
 
@@ -85,14 +88,38 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Idea is required' }, { status: 400 })
     }
 
+    let mcpTools: Record<string, any> = {}
+    const tavilyApiKey = process.env.TAVILY_API_KEY
+
+    if (tavilyApiKey) {
+      try {
+        mcpClient = await createMCPClient({
+          transport: {
+            type: 'sse',
+            url: `https://mcp.tavily.com/mcp/?tavilyApiKey=${tavilyApiKey}`,
+          },
+        })
+        mcpTools = await mcpClient.tools()
+      } catch (mcpError) {
+        console.warn('[Report MCP] Failed to connect to Tavily MCP:', mcpError)
+      }
+    }
+
     const systemPrompt = getSystemPrompt(lang as 'en' | 'es')
+    const searchInstruction = Object.keys(mcpTools).length > 0
+      ? (lang === 'es' 
+          ? '\n\nOBLIGATORIO: Utiliza la herramienta tavily_search para investigar profundamente la idea actual en el mercado y fundamentar el análisis FODA con datos, tendencias y competidores reales antes de escribir la respuesta.'
+          : '\n\nMANDATORY: Use the tavily_search tool to deeply investigate the current idea in the market and back the SWOT analysis with real data, trends, and actual competitors before writing the response.')
+      : ''
 
     const { text } = await generateText({
       model: groq('llama-3.3-70b-versatile'),
-      maxTokens: 4000,
+      tools: mcpTools,
+      stopWhen: stepCountIs(5),
+      maxTokens: 6000,
       temperature: 0.2,
       system: systemPrompt,
-      prompt: `${lang === 'es' ? 'Genera el reporte final para esta idea' : 'Generate the final report for this idea'}: "${idea}"`,
+      prompt: `${lang === 'es' ? 'Investiga y genera el reporte final para esta idea' : 'Research and generate the final report for this idea'}: "${idea}"${searchInstruction}`,
     })
 
     let raw = text || ''
@@ -113,5 +140,11 @@ export async function POST(request: Request) {
       { error: error?.message || 'Failed to generate report.' },
       { status: 500 }
     )
+  } finally {
+    if (mcpClient) {
+      try {
+        await mcpClient.close()
+      } catch {}
+    }
   }
 }
