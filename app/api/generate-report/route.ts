@@ -15,12 +15,14 @@ Tu tarea es generar un Reporte Ejecutivo Final y un Plan de Ataque para una star
 
 FORMATO OBLIGATORIO (JSON ESTRICTO):
 {
+  "companyName": "El nombre de la empresa/startup (invéntalo si no está explícito).",
+  "companySummary": "Un resumen claro de lo que hace tu empresa, destacando cómo utiliza la IA.",
   "executiveSummary": "Un resumen ejecutivo contundente de 2 párrafos sobre por qué esta versión de la idea tiene potencial de mercado si se ejecuta correctamente.",
   "swot": {
-    "strengths": ["Fuerza 1", "Fuerza 2"],
-    "weaknesses": ["Debilidad 1", "Debilidad 2"],
-    "opportunities": ["Oportunidad 1", "Oportunidad 2"],
-    "threats": ["Amenaza 1", "Amenaza 2"]
+    "strengths": ["Fuerza 1", "Fuerza 2", "Fuerza 3"],
+    "weaknesses": ["Debilidad 1", "Debilidad 2", "Debilidad 3"],
+    "opportunities": ["Oportunidad 1", "Oportunidad 2", "Oportunidad 3"],
+    "threats": ["Amenaza 1", "Amenaza 2", "Amenaza 3"]
   },
   "attackPlan": [
     {
@@ -41,7 +43,8 @@ FORMATO OBLIGATORIO (JSON ESTRICTO):
 
 REGLAS:
 - EL FORMATO DEBE SER JSON PERFECTO. Todos los valores de texto DEBEN estar entre comillas dobles. Escapa las comillas internas con barra invertida (\\").
-- **REGLA DE IDIOMA**: ABSOLUTAMENTE TODOS LOS TEXTOS DENTRO DEL JSON DEBEN ESTAR EN ESPAÑOL (SPANISH). SIN EXCEPCIONES.`
+- **REGLA DE IDIOMA**: ABSOLUTAMENTE TODOS LOS TEXTOS DENTRO DEL JSON DEBEN ESTAR EN ESPAÑOL (SPANISH). SIN EXCEPCIONES.
+- **REGLA DE FODA**: DEBES INCLUIR UN MÍNIMO DE 3 ELEMENTOS EN CADA CATEGORÍA DEL FODA (strengths, weaknesses, opportunities, threats).`
   }
 
   return `You are DOPPELGANGER, a Go-to-Market strategy analyst and business structuring expert.
@@ -49,12 +52,14 @@ Your task is to generate a Final Executive Report and Attack Plan for a startup,
 
 MANDATORY FORMAT (STRICT JSON):
 {
+  "companyName": "The proposed name for the startup (invent one if not explicit).",
+  "companySummary": "A clear summary of what the company does, highlighting how it uses AI.",
   "executiveSummary": "A punchy 2-paragraph executive summary on why this version of the idea has market potential if executed correctly.",
   "swot": {
-    "strengths": ["Strength 1", "Strength 2"],
-    "weaknesses": ["Weakness 1", "Weakness 2"],
-    "opportunities": ["Opportunity 1", "Opportunity 2"],
-    "threats": ["Threat 1", "Threat 2"]
+    "strengths": ["Strength 1", "Strength 2", "Strength 3"],
+    "weaknesses": ["Weakness 1", "Weakness 2", "Weakness 3"],
+    "opportunities": ["Opportunity 1", "Opportunity 2", "Opportunity 3"],
+    "threats": ["Threat 1", "Threat 2", "Threat 3"]
   },
   "attackPlan": [
     {
@@ -75,14 +80,15 @@ MANDATORY FORMAT (STRICT JSON):
 
 RULES:
 - FORMAT MUST BE PERFECT JSON. All text values MUST be enclosed in double quotes. Escape any internal quotes with a backslash (\\").
-- **LANGUAGE RULE**: ABSOLUTELY ALL TEXT INSIDE THE JSON MUST BE IN ENGLISH. NO EXCEPTIONS.`
+- **LANGUAGE RULE**: ABSOLUTELY ALL TEXT INSIDE THE JSON MUST BE IN ENGLISH. NO EXCEPTIONS.
+- **SWOT RULE**: YOU MUST INCLUDE A MINIMUM OF 3 ITEMS IN EACH SWOT CATEGORY (strengths, weaknesses, opportunities, threats).`
 }
 
 export async function POST(request: Request) {
   let mcpClient: Awaited<ReturnType<typeof createMCPClient>> | null = null
 
   try {
-    const { idea, lang = 'en' } = await request.json()
+    const { idea, lang = 'en', context } = await request.json()
 
     if (!idea || typeof idea !== 'string') {
       return Response.json({ error: 'Idea is required' }, { status: 400 })
@@ -112,6 +118,13 @@ export async function POST(request: Request) {
           : '\n\nMANDATORY: Use the tavily_search tool to deeply investigate the current idea in the market and back the SWOT analysis with real data, trends, and actual competitors before writing the response.')
       : ''
 
+    const basePrompt = lang === 'es' ? 'Investiga y genera el reporte final para esta idea' : 'Research and generate the final report for this idea'
+    const contextPrompt = context 
+      ? (lang === 'es' 
+          ? `\n\nEl usuario también proporcionó este nombre tentativo o contexto adicional sobre cómo lo quiere ejecutar: "${context}"` 
+          : `\n\nThe user also provided this tentative name or additional context on how they want to execute it: "${context}"`) 
+      : ''
+
     const { text } = await generateText({
       model: groq('llama-3.3-70b-versatile'),
       tools: mcpTools,
@@ -119,7 +132,7 @@ export async function POST(request: Request) {
       maxTokens: 6000,
       temperature: 0.2,
       system: systemPrompt,
-      prompt: `${lang === 'es' ? 'Investiga y genera el reporte final para esta idea' : 'Research and generate the final report for this idea'}: "${idea}"${searchInstruction}`,
+      prompt: `${basePrompt}: "${idea}"${contextPrompt}${searchInstruction}`,
     })
 
     let raw = text || ''

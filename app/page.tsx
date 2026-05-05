@@ -54,6 +54,8 @@ interface IterationNode {
 }
 
 interface FinalReport {
+  companyName: string
+  companySummary: string
   executiveSummary: string
   swot: {
     strengths: string[]
@@ -124,12 +126,14 @@ const T = {
     closeReport: "CLOSE",
     reportTitle: "DOPPELGANGER EXECUTIVE REPORT",
     swotAnalysis: "SWOT ANALYSIS",
-    attackPlan: "ATTACK PLAN (GO-TO-MARKET)",
-    finalAdvice: "FINAL ADVICE",
+    attackPlan: "SUGGESTED GO-TO-MARKET",
+    finalAdvice: "FINAL VERDICT",
     strengths: "STRENGTHS",
     weaknesses: "WEAKNESSES",
     opportunities: "OPPORTUNITIES",
-    threats: "THREATS"
+    threats: "THREATS",
+    reportContextLabel: "TENTATIVE NAME OR EXTRA CONTEXT (OPTIONAL)",
+    reportContextPlaceholder: "Write a tentative name or more details on how you plan to execute this..."
   },
   es: {
     subtitle: "LA INTELIGENCIA PARA CONSTRUIR EL FUTURO",
@@ -179,12 +183,14 @@ const T = {
     closeReport: "CERRAR",
     reportTitle: "REPORTE EJECUTIVO DOPPELGANGER",
     swotAnalysis: "ANÁLISIS FODA",
-    attackPlan: "PLAN DE ATAQUE (GO-TO-MARKET)",
-    finalAdvice: "CONSEJO FINAL",
+    attackPlan: "GO-TO-MARKET SUGERIDO",
+    finalAdvice: "VEREDICTO FINAL",
     strengths: "FORTALEZAS",
     weaknesses: "DEBILIDADES",
     opportunities: "OPORTUNIDADES",
-    threats: "AMENAZAS"
+    threats: "AMENAZAS",
+    reportContextLabel: "NOMBRE TENTATIVO O CONTEXTO EXTRA (OPCIONAL)",
+    reportContextPlaceholder: "Escribe un nombre tentativo o más detalles sobre cómo planeas ejecutar esto..."
   }
 }
 
@@ -206,6 +212,7 @@ export default function DoppelgangerApp() {
   const [iterations, setIterations] = useState<IterationNode[]>([])
   const [error, setError] = useState("")
   const [customPivot, setCustomPivot] = useState("")
+  const [reportContext, setReportContext] = useState("")
   
   // Report State
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
@@ -299,7 +306,7 @@ export default function DoppelgangerApp() {
       const res = await fetch("/api/generate-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idea: iterationIdea, lang }),
+        body: JSON.stringify({ idea: iterationIdea, lang, context: reportContext }),
       })
 
       if (!res.ok) {
@@ -327,6 +334,8 @@ export default function DoppelgangerApp() {
     setIterations([])
     setIdea("")
     setError("")
+    setCustomPivot("")
+    setReportContext("")
     setReportData(null)
     setShowReportModal(false)
     setPrintMode("all")
@@ -711,14 +720,26 @@ export default function DoppelgangerApp() {
                             )}
 
                             {/* EXPORT ACTION */}
-                            <div className="pt-8 flex justify-end">
-                              <button
-                                onClick={() => generateFinalReport(iteration.idea)}
-                                disabled={isGeneratingReport}
-                                className="bg-[#FF4D00] text-black font-black font-sans text-lg md:text-xl px-8 py-4 hover:bg-white transition-colors uppercase shadow-[0_0_20px_rgba(255,77,0,0.4)] flex items-center gap-3 disabled:opacity-50 disabled:animate-pulse"
-                              >
-                                {isGeneratingReport ? t.generatingReport : t.keepThisIdea}
-                              </button>
+                            <div className="pt-8 border-t border-[#1a1a1a] mt-8 flex flex-col gap-4">
+                              <label className="font-mono text-[11px] tracking-widest text-[#666] uppercase">
+                                {t.reportContextLabel}
+                              </label>
+                              <textarea
+                                value={reportContext}
+                                onChange={(e) => setReportContext(e.target.value)}
+                                placeholder={t.reportContextPlaceholder}
+                                className="w-full bg-[#050505] border-2 border-[#1a1a1a] focus:border-[#FF4D00] p-4 text-[#e5e5e5] font-mono text-[13px] resize-none outline-none transition-colors"
+                                rows={2}
+                              />
+                              <div className="flex justify-end mt-2">
+                                <button
+                                  onClick={() => generateFinalReport(iteration.idea)}
+                                  disabled={isGeneratingReport}
+                                  className="bg-[#FF4D00] text-black font-black font-sans text-lg md:text-xl px-8 py-4 hover:bg-white transition-colors uppercase shadow-[0_0_20px_rgba(255,77,0,0.4)] flex items-center gap-3 disabled:opacity-50 disabled:animate-pulse"
+                                >
+                                  {isGeneratingReport ? t.generatingReport : t.keepThisIdea}
+                                </button>
+                              </div>
                             </div>
 
                           </div>
@@ -805,7 +826,19 @@ export default function DoppelgangerApp() {
             <div className="max-w-4xl mx-auto p-8 md:p-16 font-sans">
               
               <div className="border-b-4 border-black pb-8 mb-8 break-inside-avoid">
-                <h1 className="font-black text-5xl md:text-7xl uppercase tracking-tighter mb-4">{t.reportTitle}</h1>
+                <div className="mb-4">
+                  <span className="font-mono text-xs md:text-sm font-bold tracking-widest uppercase bg-[#FF4D00] text-black px-3 py-1">
+                    {lang === 'es' ? 'Generado por Doppelganger' : 'Generated by Doppelganger'}
+                  </span>
+                </div>
+                <h1 className="font-black text-4xl md:text-6xl uppercase tracking-tighter mb-4">
+                  {lang === 'es' ? 'INFORME FINAL DE' : 'FINAL REPORT FOR'} <span className="text-[#FF4D00]">{reportData.companyName}</span>
+                </h1>
+                {reportData.companySummary && (
+                  <p className="text-lg md:text-xl text-gray-700 font-mono mb-6 border-l-4 border-gray-300 pl-4 py-2">
+                    {reportData.companySummary}
+                  </p>
+                )}
                 <div className="flex justify-between items-end font-mono text-gray-500 text-sm">
                   <span>GENERATED: {new Date().toLocaleDateString()}</span>
                   <span>v4.1_DEEP_MCP</span>
@@ -817,34 +850,46 @@ export default function DoppelgangerApp() {
               </div>
 
               {/* SWOT */}
-              <div className={`mb-16 ${printMode === 'gtm' ? 'print:hidden' : ''}`}>
-                <h2 className="text-3xl font-black uppercase mb-6 border-b-2 border-black pb-2 break-after-avoid">{t.swotAnalysis}</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className={`mb-16 print:break-inside-avoid print:mb-8 ${printMode === 'gtm' ? 'print:hidden' : ''}`}>
+                <h2 className="text-3xl font-black uppercase mb-6 border-b-2 border-black pb-2 break-after-avoid print:mb-4">{t.swotAnalysis}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 print:gap-4 print:grid-cols-2">
                   {/* Strengths */}
-                  <div className="bg-gray-50 p-6 border-l-4 border-green-500 break-inside-avoid">
-                    <h3 className="font-black text-xl uppercase mb-4 text-green-700">{t.strengths}</h3>
-                    <ul className="list-disc pl-5 space-y-2">
+                  <div className="bg-gray-50 p-6 print:p-4 border-l-4 border-green-500 break-inside-avoid h-full shadow-sm border border-gray-100">
+                    <h3 className="font-black text-xl uppercase mb-4 print:mb-2 text-green-700 flex items-center gap-2">
+                      <span className="w-6 h-6 bg-green-100 text-green-700 flex items-center justify-center rounded-full text-sm font-bold print:w-5 print:h-5 print:text-xs">S</span>
+                      {t.strengths}
+                    </h3>
+                    <ul className="list-disc pl-5 space-y-2 print:space-y-1 print:text-sm text-gray-800">
                       {reportData.swot.strengths.map((s, i) => <li key={i}>{s}</li>)}
                     </ul>
                   </div>
                   {/* Weaknesses */}
-                  <div className="bg-gray-50 p-6 border-l-4 border-orange-500 break-inside-avoid">
-                    <h3 className="font-black text-xl uppercase mb-4 text-orange-700">{t.weaknesses}</h3>
-                    <ul className="list-disc pl-5 space-y-2">
+                  <div className="bg-gray-50 p-6 print:p-4 border-l-4 border-orange-500 break-inside-avoid h-full shadow-sm border border-gray-100">
+                    <h3 className="font-black text-xl uppercase mb-4 print:mb-2 text-orange-700 flex items-center gap-2">
+                      <span className="w-6 h-6 bg-orange-100 text-orange-700 flex items-center justify-center rounded-full text-sm font-bold print:w-5 print:h-5 print:text-xs">W</span>
+                      {t.weaknesses}
+                    </h3>
+                    <ul className="list-disc pl-5 space-y-2 print:space-y-1 print:text-sm text-gray-800">
                       {reportData.swot.weaknesses.map((s, i) => <li key={i}>{s}</li>)}
                     </ul>
                   </div>
                   {/* Opportunities */}
-                  <div className="bg-gray-50 p-6 border-l-4 border-blue-500 break-inside-avoid">
-                    <h3 className="font-black text-xl uppercase mb-4 text-blue-700">{t.opportunities}</h3>
-                    <ul className="list-disc pl-5 space-y-2">
+                  <div className="bg-gray-50 p-6 print:p-4 border-l-4 border-blue-500 break-inside-avoid h-full shadow-sm border border-gray-100">
+                    <h3 className="font-black text-xl uppercase mb-4 print:mb-2 text-blue-700 flex items-center gap-2">
+                      <span className="w-6 h-6 bg-blue-100 text-blue-700 flex items-center justify-center rounded-full text-sm font-bold print:w-5 print:h-5 print:text-xs">O</span>
+                      {t.opportunities}
+                    </h3>
+                    <ul className="list-disc pl-5 space-y-2 print:space-y-1 print:text-sm text-gray-800">
                       {reportData.swot.opportunities.map((s, i) => <li key={i}>{s}</li>)}
                     </ul>
                   </div>
                   {/* Threats */}
-                  <div className="bg-gray-50 p-6 border-l-4 border-red-500 break-inside-avoid">
-                    <h3 className="font-black text-xl uppercase mb-4 text-red-700">{t.threats}</h3>
-                    <ul className="list-disc pl-5 space-y-2">
+                  <div className="bg-gray-50 p-6 print:p-4 border-l-4 border-red-500 break-inside-avoid h-full shadow-sm border border-gray-100">
+                    <h3 className="font-black text-xl uppercase mb-4 print:mb-2 text-red-700 flex items-center gap-2">
+                      <span className="w-6 h-6 bg-red-100 text-red-700 flex items-center justify-center rounded-full text-sm font-bold print:w-5 print:h-5 print:text-xs">T</span>
+                      {t.threats}
+                    </h3>
+                    <ul className="list-disc pl-5 space-y-2 print:space-y-1 print:text-sm text-gray-800">
                       {reportData.swot.threats.map((s, i) => <li key={i}>{s}</li>)}
                     </ul>
                   </div>
