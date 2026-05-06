@@ -91,12 +91,13 @@ function DataLines() {
           <bufferGeometry>
             <bufferAttribute
               attach="attributes-position"
-              count={2}
-              array={new Float32Array([
-                line.start.x, line.start.y, line.start.z,
-                line.end.x, line.end.y, line.end.z
-              ])}
-              itemSize={3}
+              args={[
+                new Float32Array([
+                  line.start.x, line.start.y, line.start.z,
+                  line.end.x, line.end.y, line.end.z
+                ]),
+                3,
+              ]}
             />
           </bufferGeometry>
           <lineBasicMaterial color="#333333" transparent opacity={0.4} />

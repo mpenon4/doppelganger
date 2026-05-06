@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { InteractiveCanvas } from "@/components/interactive-canvas"
 import { HUDOverlay } from "@/components/hud-overlay"
+import { PitchDeckViewer } from "@/components/pitch-deck-view"
+import { Zap } from "lucide-react"
 
 // Updated Types for v4.1 API
 interface TopMatch {
@@ -124,6 +126,8 @@ const T = {
     printSwot: "PRINT SWOT ONLY",
     printGtm: "PRINT GTM ONLY",
     closeReport: "CLOSE",
+    generatePitchDeck: "GENERATE PITCH DECK",
+    generatingPitchDeck: "Generating pitch deck...",
     reportTitle: "DOPPELGANGER EXECUTIVE REPORT",
     swotAnalysis: "SWOT ANALYSIS",
     attackPlan: "SUGGESTED GO-TO-MARKET",
@@ -132,8 +136,8 @@ const T = {
     weaknesses: "WEAKNESSES",
     opportunities: "OPPORTUNITIES",
     threats: "THREATS",
-    reportContextLabel: "TENTATIVE NAME OR EXTRA CONTEXT (OPTIONAL)",
-    reportContextPlaceholder: "Write a tentative name or more details on how you plan to execute this..."
+    reportContextLabel: "EXTRA CONTEXT FOR THE REPORT / PITCH DECK (OPTIONAL)",
+    reportContextPlaceholder: "Example for pitch deck: founder names, traction, ask amount, target market, product demo, or execution details..."
   },
   es: {
     subtitle: "LA INTELIGENCIA PARA CONSTRUIR EL FUTURO",
@@ -181,6 +185,8 @@ const T = {
     printSwot: "IMPRIMIR SOLO FODA",
     printGtm: "IMPRIMIR SOLO GTM",
     closeReport: "CERRAR",
+    generatePitchDeck: "GENERAR PITCH DECK",
+    generatingPitchDeck: "Generando pitch deck...",
     reportTitle: "REPORTE EJECUTIVO DOPPELGANGER",
     swotAnalysis: "ANÁLISIS FODA",
     attackPlan: "GO-TO-MARKET SUGERIDO",
@@ -189,8 +195,8 @@ const T = {
     weaknesses: "DEBILIDADES",
     opportunities: "OPORTUNIDADES",
     threats: "AMENAZAS",
-    reportContextLabel: "NOMBRE TENTATIVO O CONTEXTO EXTRA (OPCIONAL)",
-    reportContextPlaceholder: "Escribe un nombre tentativo o más detalles sobre cómo planeas ejecutar esto..."
+    reportContextLabel: "CONTEXTO EXTRA PARA EL INFORME / PITCH DECK (OPCIONAL)",
+    reportContextPlaceholder: "Ejemplo para pitch deck: fundadores, tracción, monto a levantar, mercado objetivo, demo del producto o detalles de ejecución..."
   }
 }
 
@@ -219,6 +225,11 @@ export default function DoppelgangerApp() {
   const [reportData, setReportData] = useState<FinalReport | null>(null)
   const [showReportModal, setShowReportModal] = useState(false)
   const [printMode, setPrintMode] = useState<"all" | "swot" | "gtm">("all")
+
+  // Pitch deck state
+  const [isGeneratingPitchDeck, setIsGeneratingPitchDeck] = useState(false)
+  const [pitchDeckData, setPitchDeckData] = useState<any>(null)
+  const [showPitchDeck, setShowPitchDeck] = useState(false)
 
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -320,6 +331,36 @@ export default function DoppelgangerApp() {
       setError(e instanceof Error ? e.message : "Report generation failed")
     } finally {
       setIsGeneratingReport(false)
+    }
+  }
+
+  async function generatePitchDeck() {
+    if (!reportData) return
+    const latestResearch = iterations.at(-1)?.results
+    setIsGeneratingPitchDeck(true)
+    setError("")
+    try {
+      const res = await fetch("/api/generate-pitch-deck", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ report: reportData, research: latestResearch, lang }),
+      })
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null)
+        throw new Error(errData?.error || "Failed to generate pitch deck")
+      }
+
+      const data = await res.json()
+      setPitchDeckData(data)
+      setShowReportModal(false)
+      setShowPitchDeck(true)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Pitch deck generation failed"
+      setError(message)
+      alert(message)
+    } finally {
+      setIsGeneratingPitchDeck(false)
     }
   }
 
@@ -801,6 +842,14 @@ export default function DoppelgangerApp() {
                 {t.closeReport}
               </button>
               <div className="flex gap-2">
+                <button
+                  onClick={generatePitchDeck}
+                  disabled={isGeneratingPitchDeck}
+                  className="font-mono text-sm px-4 py-2 bg-cyan-600 text-black font-bold hover:bg-cyan-500 transition-colors border border-transparent disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Zap size={14} />
+                  {isGeneratingPitchDeck ? t.generatingPitchDeck : t.generatePitchDeck}
+                </button>
                 <button 
                   onClick={() => { setPrintMode("all"); setTimeout(() => window.print(), 100); }}
                   className="font-mono text-sm px-4 py-2 bg-[#FF4D00] text-black font-bold hover:bg-black hover:text-white transition-colors border border-transparent"
@@ -922,6 +971,14 @@ export default function DoppelgangerApp() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Pitch Deck Viewer Modal */}
+      <PitchDeckViewer
+        pitchDeck={pitchDeckData}
+        isOpen={showPitchDeck}
+        onClose={() => setShowPitchDeck(false)}
+        lang={lang}
+      />
 
     </div>
   )

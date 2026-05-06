@@ -129,7 +129,7 @@ export async function POST(request: Request) {
       model: groq('llama-3.3-70b-versatile'),
       tools: mcpTools,
       stopWhen: stepCountIs(5),
-      maxTokens: 6000,
+      maxOutputTokens: 6000,
       temperature: 0.2,
       system: systemPrompt,
       prompt: `${basePrompt}: "${idea}"${contextPrompt}${searchInstruction}`,

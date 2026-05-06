@@ -137,3 +137,175 @@ body::before {
   color: #fff;
   font-weight: 900;
 }
+
+@media print {
+  body::before,
+  .noise-overlay {
+    display: none !important;
+  }
+
+  .pitch-deck-print-root {
+    display: block !important;
+    background: #050505 !important;
+    color: #f8fafc !important;
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  }
+
+  .pitch-deck-print-page {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    page-break-after: always;
+    break-after: page;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 82% 16%, rgba(255, 77, 0, 0.34), transparent 18rem),
+      radial-gradient(circle at 14% 86%, rgba(6, 182, 212, 0.24), transparent 20rem),
+      linear-gradient(120deg, rgba(255, 77, 0, 0.18), transparent 34%),
+      linear-gradient(180deg, #0b0b0c 0%, #141414 52%, #050505 100%);
+    color: #f8fafc;
+    padding: 6.2vh 7.4vw 5.6vh;
+  }
+
+  .pitch-deck-print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .pitch-deck-print-page::before {
+    content: "";
+    position: absolute;
+    inset: 3vh 3vw;
+    border: 1.5px solid rgba(255, 255, 255, 0.22);
+    pointer-events: none;
+  }
+
+  .pitch-deck-print-page::after {
+    content: "";
+    position: absolute;
+    right: -8vw;
+    top: 10vh;
+    width: 38vw;
+    height: 38vw;
+    border: 1px solid rgba(255, 77, 0, 0.42);
+    transform: rotate(18deg);
+    pointer-events: none;
+  }
+
+  .pitch-deck-print-meta {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-jetbrains-mono), monospace;
+    color: rgba(248, 250, 252, 0.8);
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .pitch-deck-print-cover,
+  .pitch-deck-print-content {
+    position: relative;
+    z-index: 1;
+    max-width: 78%;
+    margin-top: 8vh;
+  }
+
+  .pitch-deck-print-kicker {
+    display: inline-flex;
+    background: #ff4d00;
+    color: #050505;
+    font-family: var(--font-jetbrains-mono), monospace;
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.18em;
+    margin-bottom: 1.4rem;
+    padding: 0.45rem 0.7rem;
+    text-transform: uppercase;
+  }
+
+  .pitch-deck-print-cover h1 {
+    color: #ffffff;
+    font-size: 5rem;
+    font-weight: 950;
+    letter-spacing: 0;
+    line-height: 0.92;
+    text-transform: uppercase;
+  }
+
+  .pitch-deck-print-content h1 {
+    color: #ffffff;
+    font-size: 4.05rem;
+    font-weight: 950;
+    letter-spacing: 0;
+    line-height: 0.95;
+    text-transform: uppercase;
+  }
+
+  .pitch-deck-print-cover h2 {
+    margin-top: 2rem;
+    max-width: 76%;
+    color: rgba(248, 250, 252, 0.76);
+    font-size: 1.55rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .pitch-deck-print-cover ul,
+  .pitch-deck-print-content ul {
+    display: grid;
+    gap: 0.72rem;
+    margin-top: 2rem;
+    padding: 0;
+    list-style: none;
+    max-width: 92%;
+  }
+
+  .pitch-deck-print-cover li,
+  .pitch-deck-print-content li {
+    position: relative;
+    min-height: 3.25rem;
+    padding: 0.78rem 1rem 0.78rem 2.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.075);
+    color: #f8fafc;
+    font-size: 1.2rem;
+    font-weight: 700;
+    line-height: 1.22;
+    backdrop-filter: blur(8px);
+  }
+
+  .pitch-deck-print-cover li::before,
+  .pitch-deck-print-content li::before {
+    content: "";
+    position: absolute;
+    left: 1rem;
+    top: 1.24rem;
+    width: 0.55rem;
+    height: 0.55rem;
+    background: #ff4d00;
+  }
+
+  .pitch-deck-print-notes {
+    position: absolute;
+    left: 8vw;
+    right: 8vw;
+    bottom: 5.4vh;
+    z-index: 1;
+    border-top: 1px solid rgba(255, 255, 255, 0.24);
+    padding-top: 0.9rem;
+    color: rgba(248, 250, 252, 0.68);
+    font-family: var(--font-jetbrains-mono), monospace;
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+
+  .pitch-deck-print-notes strong {
+    display: block;
+    color: #ff4d00;
+    margin-bottom: 0.35rem;
+    text-transform: uppercase;
+  }
+}

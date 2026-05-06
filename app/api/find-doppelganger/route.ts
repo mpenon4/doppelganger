@@ -179,7 +179,7 @@ You must base your analysis on REAL data, REAL companies, and REAL sources. Do n
       model: groq('llama-3.3-70b-versatile'),
       tools: mcpTools,
       stopWhen: stepCountIs(6),
-      maxTokens: 6000,
+      maxOutputTokens: 6000,
       temperature: 0.2,
       system: systemPrompt,
       prompt: `${lang === 'es' ? 'Analiza rigurosamente esta idea de startup' : 'Rigorously analyze this startup idea'}: "${description}"${searchInstruction}`,
@@ -191,7 +191,8 @@ You must base your analysis on REAL data, REAL companies, and REAL sources. Do n
         if (step.toolResults) {
           for (const result of step.toolResults) {
             try {
-              const parsed = typeof result.result === 'string' ? JSON.parse(result.result) : result.result
+              const toolOutput = 'output' in result ? result.output : undefined
+              const parsed = typeof toolOutput === 'string' ? JSON.parse(toolOutput) : toolOutput
               if (parsed?.results) {
                 for (const r of parsed.results) {
                   if (r.url && r.title) {
