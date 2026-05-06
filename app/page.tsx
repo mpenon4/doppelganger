@@ -41,6 +41,14 @@ interface Source {
 interface Results {
   marketEvaluation: string
   topMatches: TopMatch[]
+  realCompetitors?: {
+    name: string
+    founded: string
+    funding: string
+    status: "active" | "dead" | "pivoted"
+    description: string
+    url: string
+  }[]
   radarAlternatives: RadarAlternative[]
   verdict: Verdict
   pivotOptions: PivotOption[]

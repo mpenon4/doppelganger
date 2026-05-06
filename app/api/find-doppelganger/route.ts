@@ -1,6 +1,7 @@
 import { generateText, tool, stepCountIs } from 'ai'
 import { createGroq } from '@ai-sdk/groq'
 import { createMCPClient } from '@ai-sdk/mcp'
+import { fetchRealCompetitors } from '@/lib/competitorDataService'
 
 export const maxDuration = 60
 
@@ -164,6 +165,18 @@ export async function POST(request: Request) {
       console.warn('[MCP] No TAVILY_API_KEY set, running in LLM-only mode')
     }
 
+    const realCompetitors = await fetchRealCompetitors(description)
+    const realCompetitorInstruction = realCompetitors.length > 0
+      ? `\n\nSTRUCTURED REAL COMPANY DATA FROM PEOPLE DATA LABS:
+${realCompetitors.map((company) => `- ${company.name} (${company.status})
+  Founded: ${company.founded}
+  Funding: ${company.funding}
+  Description: ${company.description}
+  URL: ${company.url || 'Not available'}`).join('\n')}
+
+Use this structured company data as high-confidence competitor context. You may still use web search to verify details and find failure modes, pivots, and go-to-market lessons.`
+      : ''
+
     const systemPrompt = getSystemPrompt(lang as 'en' | 'es')
     
     const searchInstruction = Object.keys(mcpTools).length > 0
@@ -182,7 +195,7 @@ You must base your analysis on REAL data, REAL companies, and REAL sources. Do n
       maxOutputTokens: 6000,
       temperature: 0.2,
       system: systemPrompt,
-      prompt: `${lang === 'es' ? 'Analiza rigurosamente esta idea de startup' : 'Rigorously analyze this startup idea'}: "${description}"${searchInstruction}`,
+      prompt: `${lang === 'es' ? 'Analiza rigurosamente esta idea de startup' : 'Rigorously analyze this startup idea'}: "${description}"${searchInstruction}${realCompetitorInstruction}`,
     })
 
     const sources: Array<{ title: string; url: string }> = []
@@ -225,6 +238,7 @@ You must base your analysis on REAL data, REAL companies, and REAL sources. Do n
     return Response.json({
       ...parsed,
       sources: sources.slice(0, 10),
+      realCompetitors,
       mcpConnected: Object.keys(mcpTools).length > 0,
     })
 

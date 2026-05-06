@@ -22,6 +22,14 @@ interface FinalReport {
 }
 
 interface ResearchContext {
+  realCompetitors?: Array<{
+    name?: string
+    founded?: string
+    funding?: string
+    status?: string
+    description?: string
+    url?: string
+  }>
   marketEvaluation?: string
   topMatches?: Array<{
     name?: string
@@ -52,6 +60,19 @@ interface PitchDeckOutput {
 }
 
 function formatResearch(research?: ResearchContext) {
+  const realCompetitors = research?.realCompetitors
+    ?.map((c) =>
+      [
+        `- ${c.name || "Unknown"} (${c.status || "unknown"})`,
+        c.founded ? `  Founded: ${c.founded}` : "",
+        c.funding ? `  Funding: ${c.funding}` : "",
+        c.description ? `  Description: ${c.description}` : "",
+        c.url ? `  URL: ${c.url}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    )
+    .join("\n")
   const competitors = research?.topMatches
     ?.map((c) =>
       [
@@ -68,6 +89,7 @@ function formatResearch(research?: ResearchContext) {
     .join("\n")
 
   return {
+    realCompetitors: realCompetitors || "Not provided",
     competitors: competitors || "Not provided",
     radar: research?.radarAlternatives?.map((r) => `- ${r.name}: ${r.focus}`).join("\n") || "Not provided",
     pivots: research?.pivotOptions?.map((p) => `- ${p.title}: ${p.description}`).join("\n") || "Not provided",
@@ -104,6 +126,8 @@ Final advice: ${report.finalAdvice}
 
 MARKET RESEARCH CONTEXT:
 Market evaluation: ${researchText.marketEvaluation}
+Structured company data:
+${researchText.realCompetitors}
 Competitors and lessons:
 ${researchText.competitors}
 Radar alternatives:
@@ -165,6 +189,8 @@ Consejo final: ${report.finalAdvice}
 
 CONTEXTO DE RESEARCH DE MERCADO:
 Evaluacion del mercado: ${researchText.marketEvaluation}
+Datos estructurados de companias:
+${researchText.realCompetitors}
 Competidores y aprendizajes:
 ${researchText.competitors}
 Alternativas en radar:
